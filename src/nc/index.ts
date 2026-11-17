@@ -1,3 +1,3 @@
 export { parseProgram } from './parser';
-export { runProgram, initialState, workPosition } from './interpreter';
+export { runProgram, resumeProgram, initialState, workPosition } from './interpreter';
 export type * from './types';

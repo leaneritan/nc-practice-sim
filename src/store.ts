@@ -6,6 +6,10 @@ export type Language = 'ja' | 'en';
 interface AppState {
   language: Language;
   program: string;
+  strictDecimals: boolean;
+  optionalStop: boolean;
+  setStrictDecimals: (value: boolean) => void;
+  setOptionalStop: (value: boolean) => void;
   setLanguage: (language: Language) => void;
   setProgram: (program: string) => void;
 }
@@ -23,18 +27,22 @@ export const safeStorage = {
 };
 export const useAppStore = create<AppState>()(persist(
   (set) => ({
-    language: 'ja', program: ja.sampleProgram,
+    language: 'ja', program: ja.sampleProgram, strictDecimals: false, optionalStop: false,
+    setStrictDecimals: (strictDecimals) => set({ strictDecimals }),
+    setOptionalStop: (optionalStop) => set({ optionalStop }),
     setLanguage: (language) => set({ language }),
     setProgram: (program) => set({ program }),
   }),
   {
     name: 'nc-practice-phase1',
     storage: createJSONStorage(() => safeStorage),
-    partialize: ({ language, program }) => ({ language, program }),
+    partialize: ({ language, program, strictDecimals, optionalStop }) => ({ language, program, strictDecimals, optionalStop }),
     merge: (persisted, current) => {
       const saved = persisted as Partial<AppState> | null;
       return {
         ...current,
+        strictDecimals: saved?.strictDecimals === true,
+        optionalStop: saved?.optionalStop === true,
         language: saved?.language === 'en' ? 'en' : 'ja',
         program: typeof saved?.program === 'string' ? saved.program : current.program,
       };

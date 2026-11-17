@@ -1,28 +1,41 @@
 /** All distances are millimetres; feed is mm/min and spindle speed is rpm. */
 export interface Vec3 { x: number; y: number; z: number }
 export type WorkSystem = 54 | 55 | 56 | 57 | 58 | 59;
-export type MotionMode = 0 | 1 | 2 | 3 | 81 | 83 | null;
+export type MotionMode = 0 | 1 | 2 | 3 | 81 | 82 | 83 | 84 | null;
 export type AlarmCode =
   | 'syntax' | 'comment' | 'unsupportedWord' | 'unsupportedCode' | 'duplicateWord'
   | 'modalConflict' | 'invalidValue' | 'missingFeed' | 'missingMotion'
   | 'missingOffset' | 'arcDefinition' | 'arcGeometry' | 'cycleParameters'
-  | 'cycleFrameChange' | 'unexpectedWord' | 'limit' | 'configuration';
+  | 'cycleFrameChange' | 'unexpectedWord' | 'limit' | 'configuration' | 'tappingSpindle';
 export interface Alarm {
   code: AlarmCode;
   /** Physical source line, not the optional N word. Line 0 denotes configuration. */
   line: number;
   detail: string;
 }
-export interface Word { letter: string; value: number }
+export interface Word {
+  letter: string;
+  value: number;
+  /** Original numeric spelling; preserve the decimal point for control-style input. */
+  raw: string;
+}
+export interface DecimalWarning {
+  line: number;
+  word: string;
+  interpreted: number;
+  strictValue: number;
+}
+export interface ParseOptions { strictDecimals?: boolean }
 export interface Block { line: number; words: Word[] }
-export interface ParseResult { blocks: Block[]; alarms: Alarm[] }
+export interface ParseResult { blocks: Block[]; alarms: Alarm[]; warnings: DecimalWarning[] }
 export interface DrillCycle {
-  kind: 81 | 83;
+  kind: 81 | 82 | 83 | 84;
   /** Machine-space planes, captured when the cycle is first called. */
   initialZ: number;
   r: number;
   depth: number;
   q?: number;
+  dwellMs?: number;
 }
 export interface ModalState {
   position: Vec3;
@@ -33,6 +46,7 @@ export interface ModalState {
   feedMode: 94;
   workSystem: WorkSystem;
   lengthOffset: number | null;
+  diameterOffset: number;
   feed: number;
   speed: number;
   selectedTool: number | null;
@@ -42,6 +56,7 @@ export interface ModalState {
   retract: 98 | 99;
   cycle: DrillCycle | null;
   ended: boolean;
+  paused: { code: 0 | 1; line: number } | null;
 }
 interface SegmentBase {
   line: number;
@@ -52,6 +67,9 @@ interface SegmentBase {
   workSystem: WorkSystem;
   lengthOffset: number | null;
   tool: number | null;
+  diameterOffset: number;
+  spindle: 'off' | 'cw' | 'ccw';
+  speed: number;
 }
 export type MotionSegment =
   | (SegmentBase & { kind: 'rapid' | 'linear' })
@@ -64,13 +82,35 @@ export type MotionSegment =
     });
 export interface InterpreterOptions {
   initialPosition?: Vec3;
+  /** Machine reference point for G28; default (0, 0, 0). */
+  referencePosition?: Vec3;
+  strictDecimals?: boolean;
+  optionalStop?: boolean;
   workOffsets?: Partial<Record<WorkSystem, Vec3>>;
   toolLengths?: Record<number, number>;
   /** G83 rapid re-entry stays this far above the preceding peck bottom. */
   peckClearance?: number;
 }
+export type ProgramEvent = {
+  line: number;
+  position: Vec3;
+  /** Number of completed segments before this event. */
+  afterSegment: number;
+} & (
+  | { kind: 'dwell'; durationMs: number }
+  | { kind: 'spindle'; direction: 'cw' | 'ccw' }
+  | { kind: 'stop'; code: 0 | 1; paused: boolean }
+);
+export interface ExecutionCursor {
+  blocks: Block[];
+  nextBlock: number;
+  options: InterpreterOptions;
+}
 export interface RunResult {
   segments: MotionSegment[];
   state: ModalState;
   alarms: Alarm[];
+  warnings: DecimalWarning[];
+  events: ProgramEvent[];
+  continuation: ExecutionCursor | null;
 }

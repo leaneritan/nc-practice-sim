@@ -1,14 +1,15 @@
-import type { Alarm, Block, ParseResult, Word } from './types';
+import type { Alarm, Block, ParseOptions, ParseResult, DecimalWarning, Word } from './types';
 
-const letters = new Set('GMXYZIJRFQHSTNO');
+const letters = new Set('GMXYZIJRFQHSTNODP');
 export const MAX_SOURCE_LENGTH = 200_000;
 export const MAX_BLOCKS = 10_000;
 
 /** Tokenize without eval. Comments may span lines; physical line numbers survive. */
-export function parseProgram(source: string): ParseResult {
+export function parseProgram(source: string, options: ParseOptions = {}): ParseResult {
   const blocks: Block[] = [];
+  const warnings: DecimalWarning[] = [];
   const fail = (code: Alarm['code'], line: number, detail: string): ParseResult =>
-    ({ blocks: [], alarms: [{ code, line, detail }] });
+    ({ blocks: [], alarms: [{ code, line, detail }], warnings });
   if (source.length > MAX_SOURCE_LENGTH) return fail('limit', 1, 'source');
   let inComment = false;
   let commentLine = 0;
@@ -42,18 +43,22 @@ export function parseProgram(source: string): ParseResult {
       const match = /^([A-Z])\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))/.exec(clean.slice(cursor));
       if (!match) return fail('syntax', line, clean.slice(cursor, cursor + 24));
       const letter = match[1]!;
-      const value = Number(match[2]);
+      const raw = match[2]!;
+      const numeric = Number(raw);
+      const implicitDecimal = 'XYZIJRQ'.includes(letter) && !raw.includes('.');
+      const value = options.strictDecimals && implicitDecimal ? numeric / 1000 : numeric;
       if (!letters.has(letter)) return fail('unsupportedWord', line, letter);
       if (!Number.isFinite(value)) return fail('invalidValue', line, letter);
       if (seen.has(letter) && letter !== 'G' && letter !== 'M') {
         return fail('duplicateWord', line, letter);
       }
       seen.add(letter);
-      words.push({ letter, value });
+      if (implicitDecimal) warnings.push({ line, word: letter + raw, interpreted: value, strictValue: numeric / 1000 });
+      words.push({ letter, value, raw });
       cursor += match[0].length;
     }
     blocks.push({ line, words });
   }
   if (inComment) return fail('comment', commentLine, '(');
-  return { blocks, alarms: [] };
+  return { blocks, alarms: [], warnings };
 }
