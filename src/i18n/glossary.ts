@@ -29,6 +29,8 @@ export const glossary = [
   { id: 'initialPlane', ja: 'イニシャル点', kana: 'いにしゃるてん', romaji: 'inisharu ten', en: 'Initial plane', meaningEn: 'The height at cycle entry; G98 returns here or to R if R is higher.', meaningJa: 'サイクル開始時の高さです。G98ではこの高さ（R点の方が高ければR点）へ戻ります。' },
   { id: 'modal', ja: 'モーダル', kana: 'もーだる', romaji: 'mōdaru', en: 'Modal state', meaningEn: 'A setting that remains active until another command changes it.', meaningJa: '別の指令で変更されるまで有効な状態が続くことです。' },
   { id: 'alarm', ja: 'アラーム', kana: 'あらーむ', romaji: 'arāmu', en: 'Alarm', meaningEn: 'An error that stops calculation and identifies the source line.', meaningJa: '計算を停止し、原因の行を知らせるエラーです。' },
+  { id: 'stock', ja: '素材', kana: 'そざい', romaji: 'sozai', en: 'Stock', meaningEn: 'The starting block of material, before machining.', meaningJa: '加工を始める前の材料です。この画面では100×60×20 mmのブロックを示します。' },
+  { id: 'vise', ja: 'バイス', kana: 'ばいす', romaji: 'baisu', en: 'Vise', meaningEn: 'A workholding device that grips the stock between jaws.', meaningJa: '口金の間に素材を挟んで固定する保持具です。' },
 ] as const satisfies readonly GlossaryEntry[];
 
 export type TermId = typeof glossary[number]['id'];

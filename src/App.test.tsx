@@ -10,7 +10,7 @@ import { safeStorage, useAppStore } from './store';
 
 beforeEach(() => {
   localStorage.clear();
-  useAppStore.setState({ language: 'ja', program: ja.sampleProgram });
+  useAppStore.setState({ language: 'ja', program: ja.sampleProgram, strictDecimals: false, optionalStop: false });
 });
 
 describe('Phase 1 page', () => {
@@ -97,9 +97,9 @@ describe('Phase 1 page', () => {
 });
 
 describe('glossary accessibility and localization', () => {
-  it('contains exactly 20 unique, complete entries and matching translation keys', () => {
-    expect(glossary).toHaveLength(20);
-    expect(new Set(glossary.map(term => term.id)).size).toBe(20);
+  it('contains the original 20 plus two workholding, complete entries and matching translation keys', () => {
+    expect(glossary).toHaveLength(22);
+    expect(new Set(glossary.map(term => term.id)).size).toBe(22);
     for (const term of glossary) for (const value of Object.values(term)) expect(value.length).toBeGreaterThan(0);
     expect(Object.keys(ja).sort()).toEqual(Object.keys(en).sort());
     expect(Object.keys(ja.alarms).sort()).toEqual(Object.keys(en.alarms).sort());
@@ -107,7 +107,7 @@ describe('glossary accessibility and localization', () => {
   it('shows all five learning fields on hover and dismisses on mouse leave', async () => {
     const user = userEvent.setup();
     render(<App />);
-    const trigger = screen.getByRole('button', { name: '早送り' });
+    const trigger = screen.getAllByRole('button', { name: '早送り' }).at(-1)!;
     await user.hover(trigger);
     const tooltip = screen.getByRole('tooltip');
     for (const text of ['早送り', 'はやおくり', 'hayaokuri', 'Rapid traverse', glossary[2].meaningJa]) {
@@ -120,7 +120,7 @@ describe('glossary accessibility and localization', () => {
   it('supports tap toggling, keyboard focus, Escape and outside dismissal', async () => {
     const user = userEvent.setup();
     render(<App />);
-    const trigger = screen.getByRole('button', { name: '早送り' });
+    const trigger = screen.getAllByRole('button', { name: '早送り' }).at(-1)!;
     await user.click(trigger);
     expect(screen.getByRole('tooltip')).toBeVisible();
     await user.unhover(trigger);
@@ -139,7 +139,7 @@ describe('glossary accessibility and localization', () => {
     useAppStore.setState({ language: 'en' });
     const user = userEvent.setup();
     render(<App />);
-    await user.hover(screen.getByRole('button', { name: 'Rapid traverse' }));
+    await user.hover(screen.getAllByRole('button', { name: 'Rapid traverse' }).at(-1)!);
     expect(screen.getByRole('tooltip')).toHaveTextContent(glossary[2].meaningEn);
     expect(screen.getByRole('tooltip')).toHaveTextContent('はやおくり');
   });

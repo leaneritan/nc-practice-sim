@@ -233,8 +233,7 @@ describe('G81 and G83 fixed cycles', () => {
 describe('alarms, atomic blocks and resource bounds', () => {
   it.each([
     ['G999', 'unsupportedCode'], ['G18', 'unsupportedCode'], ['G20', 'unsupportedCode'],
-    ['G41', 'unsupportedCode'], ['G82', 'unsupportedCode'], ['G84', 'unsupportedCode'],
-    ['G28', 'unsupportedCode'], ['M0', 'unsupportedCode'], ['M1', 'unsupportedCode'],
+    ['G41', 'unsupportedCode'],
     ['G1.5', 'unsupportedCode'], ['M99', 'unsupportedCode'],
     ['G0 G1 X1', 'modalConflict'], ['G90 G91', 'modalConflict'],
     ['G54 G55', 'modalConflict'], ['M3 M5', 'modalConflict'], ['M8 M9', 'modalConflict'],
