@@ -1,3 +1,6 @@
+import { StockView } from './components/StockView';
+import { machineHome, simulationOptions } from './setup';
+import type { Heightmap } from './nc/stock';
 import { activeWorkShift, segmentInWorkCoordinates } from './nc/coordinates';
 import type { InterpreterOptions, ModalState } from './nc';
 import { useEffect, useMemo, useState } from 'react';
@@ -10,16 +13,14 @@ import { parseProgram, resumeProgram, runProgram } from './nc';
 import type { RunResult, Vec3 } from './nc';
 import { useAppStore } from './store';
 
-export default function PracticePreview({ embedded = false, showEditor = true, modalState }: { embedded?: boolean; showEditor?: boolean; modalState?: ModalState }) {
+export default function PracticePreview({ embedded = false, showEditor = true, modalState, initialStock }: { embedded?: boolean; showEditor?: boolean; modalState?: ModalState; initialStock?: Heightmap }) {
   const { t, language } = useI18n();
-  const { program, setProgram, setLanguage, strictDecimals, optionalStop, setStrictDecimals, setOptionalStop, workOffsets, tools } = useAppStore();
+  const { program, setProgram, setLanguage, strictDecimals, optionalStop, setStrictDecimals, setOptionalStop, workOffsets, tools, pocketWidth } = useAppStore();
   const [result, setResult] = useState<RunResult | null>(null);
   const [executedProgram, setExecutedProgram] = useState('');
   const [executedSettings, setExecutedSettings] = useState('');
   const [sample, setSample] = useState<keyof typeof t.samples>('contour');
-  const options: InterpreterOptions = { strictDecimals, optionalStop, workOffsets,
-    toolLengths: Object.fromEntries(tools.map(tool => [tool.pocket, tool.length])),
-    initialPosition: { x: 0, y: 0, z: 80 }, referencePosition: { x: 0, y: 0, z: 80 },
+  const options: InterpreterOptions = { ...simulationOptions(workOffsets, tools, pocketWidth), strictDecimals, optionalStop, initialStock,
     ...(modalState ? { initialModalState: { ...modalState, paused: null, ended: false } } : {}) };
   const [resultOptions, setResultOptions] = useState<InterpreterOptions>({});
   const settingsKey = JSON.stringify(options);
@@ -48,7 +49,7 @@ export default function PracticePreview({ embedded = false, showEditor = true, m
     </header>
     <p className="disclaimer">{t.disclaimer}</p>
     <p className="introduction">{t.introduction}</p></>}
-    {!showEditor && <div className="actions"><button className="primary" onClick={run}>{t.run}</button><span className="hint">{t.previewHint}</span></div>}
+    {!showEditor && <div className="actions"><button className="primary" onClick={run}>{t.run}</button><span className="hint">{t.sim.preview}</span></div>}
     <div className={showEditor ? 'workspace' : 'preview-result'}>
       {showEditor && <section className="panel editor-panel" aria-labelledby="program-heading">
         <h2 id="program-heading"><Term id="program" label={t.programKey} /></h2>
@@ -100,7 +101,9 @@ export default function PracticePreview({ embedded = false, showEditor = true, m
           <button className="primary" disabled={stale} onClick={() => { setResult(resumeProgram(result)); setPage(0); }}>{t.continueRun}</button>
           <p className="hint">{t.pauseHint}</p>
         </div>}
-        <PathView segments={result?.segments ?? []} position={result?.state.position ?? { x: 0, y: 0, z: 80 }} workShift={result ? activeWorkShift(result.state, resultOptions) : undefined} />
+        <PathView segments={result?.segments ?? []} position={result?.state.position ?? machineHome} workShift={result ? activeWorkShift(result.state, resultOptions) : undefined} />
+        {result?.stock && <StockView stock={result.stock} position={result.state.position} origin={resultOptions.safety?.stockOrigin ?? workOffsets[54]}
+          tool={resultOptions.safety?.tools.find(tool => tool.pocket === result.state.tool)} />}
         {result && result.events.length > 0 && <EventLog events={result.events} />}
         {result?.alarms.map((alarm, index) => <div role="alert" className="alarm" key={index}>
           <strong><Term id="alarm" /> · {t.line} {alarm.line}</strong>

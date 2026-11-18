@@ -1,3 +1,7 @@
+import { StockView } from './components/StockView';
+import { Magazine } from './components/Magazine';
+import { machineHome, simulationOptions } from './setup';
+import { createStock } from './nc/stock';
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from './i18n';
 import { glossary } from './i18n/glossary';
@@ -20,17 +24,16 @@ const axes = ['x', 'y', 'z'] as const;
 export default function App() {
   const { t, language } = useI18n();
   const store = useAppStore();
-  const [machine, setMachine] = useState(() => setControls(createMachine(), { optionalStop: store.optionalStop }));
+  const [machine, setMachine] = useState(() => setControls(createMachine(machineHome), { optionalStop: store.optionalStop }));
   const [screen, setScreen] = useState<Screen>('PROGRAM');
   const [mdi, setMdi] = useState('');
   const [handle, setHandle] = useState<1 | 10 | 100>(1);
   const [jogInput, setJogInput] = useState<JogInput>(null);
   const [sample, setSample] = useState<keyof typeof t.samples>('contour');
   const busy = locked(machine);
-  const options = useMemo<InterpreterOptions>(() => ({ workOffsets: store.workOffsets,
-    toolLengths: Object.fromEntries(store.tools.map(tool => [tool.pocket, tool.length])),
-    strictDecimals: store.strictDecimals, optionalStop: store.optionalStop, referencePosition: { x: 0, y: 0, z: 80 },
-  }), [store.workOffsets, store.tools, store.strictDecimals, store.optionalStop]);
+  const options = useMemo<InterpreterOptions>(() => ({ ...simulationOptions(store.workOffsets, store.tools, store.pocketWidth),
+    strictDecimals: store.strictDecimals, optionalStop: store.optionalStop,
+  }), [store.workOffsets, store.tools, store.pocketWidth, store.strictDecimals, store.optionalStop]);
   const activeOptions = machine.session?.options ?? options;
   const shift = activeWorkShift(machine.state, activeOptions);
   const work = machineToWork(machine.state.position, shift);
@@ -74,6 +77,14 @@ export default function App() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', stop); window.removeEventListener('blur', stop); document.removeEventListener('visibilitychange', stop); };
   }, [machine.mode, busy, handle, options]);
 
+  const activeTools = activeOptions.safety?.tools ?? store.tools;
+  const stockOrigin = activeOptions.safety?.stockOrigin ?? store.workOffsets[54];
+  const tool = activeTools.find(tool => tool.pocket === machine.state.tool);
+  const pending = machine.session?.pending;
+  const operation = pending?.operations[pending.index];
+  const changing = operation?.kind === 'event' && operation.event.kind === 'toolChange';
+  const stockView = <StockView stock={machine.stock} position={machine.state.position} origin={stockOrigin} tool={tool} />;
+  const magazine = <Magazine tools={store.tools} mounted={machine.state.tool} selected={pending?.state.selectedTool ?? machine.state.selectedTool} changing={!!changing} />;
   function coordinates(label: string, point: Vec3, term: 'workCoordinate' | 'machineCoordinate' | null) {
     return <section className="position-card" aria-label={label}>
       <h3>{term ? <Term id={term} label={label} /> : label}</h3>
@@ -87,7 +98,7 @@ export default function App() {
         <button lang="en" aria-pressed={language === 'en'} onClick={() => store.setLanguage('en')}>{t.english}</button>
       </div>
     </header>
-    <p className="disclaimer">{t.disclaimer}</p><p className="hint">{t.panel.machineHint}</p>
+    <p className="disclaimer">{t.disclaimer}</p><p className="hint">{t.sim.defaults}</p>
     <div className="machine-console">
       <div className="display-unit">
         <div className="machine-status" role="status" aria-label={t.panel.statusLabel}>
@@ -106,7 +117,7 @@ export default function App() {
             </div>
             <p className="hint">G{machine.state.workSystem} · H{machine.state.lengthOffset ?? 0} · {t.panel.block} {machine.line || t.dash}</p>
             <PathView segments={trace} position={machine.state.position} workShift={shift} />
-            <p className="hint">{t.panel.traceHint}</p>
+            <p className="hint">{t.panel.traceHint}</p>{stockView}{magazine}
           </section>}
           {screen === 'PROGRAM' && <section>
             <h2>{t.panel.screens.PROGRAM}</h2>
@@ -141,13 +152,13 @@ export default function App() {
           {screen === 'SHAPE CHECK' && <section>
             <h2>{t.panel.screens['SHAPE CHECK']} · <Term id="workCoordinate" /></h2>
             {(busy || machine.session || trace.length > 0) ? <><PathView segments={trace} position={machine.state.position} workShift={shift} />
-              <p className="hint">{t.panel.traceHint}</p>{machine.events.length > 0 && <EventLog events={machine.events} />}
+              {stockView}<p className="hint">{t.panel.traceHint}</p>{machine.events.length > 0 && <EventLog events={machine.events} />}
               {!busy && <p className="hint">{t.panel.previewResetHint}</p>}</>
-              : <PracticePreview embedded showEditor={false} modalState={machine.state} />}
+              : <PracticePreview embedded showEditor={false} modalState={machine.state} initialStock={machine.stock} />}
           </section>}
           {screen === 'WORK OFFSET' && <WorkOffsetScreen disabled={busy} active={machine.state.workSystem} beforeEdit={invalidate}
             select={system => setMachine(current => { const reset = resetMachine(current); return { ...reset, state: { ...reset.state, workSystem: system } }; })} />}
-          {screen === 'TOOL DATA' && <ToolDataScreen disabled={busy} beforeEdit={invalidate} />}
+          {screen === 'TOOL DATA' && <><ToolDataScreen disabled={busy} beforeEdit={invalidate} />{magazine}</>}
           {screen === 'ALARM' && <section><h2>{t.panel.screens.ALARM}</h2>
             {machine.alarms.length === 0 ? <p>{t.panel.noAlarms}</p> : machine.alarms.map((alarm, index) => <div role="alert" className="alarm" key={index}>
               <strong>{t.line} {alarm.line} · {alarm.detail}</strong><p>{t.alarms[alarm.code]}</p>
@@ -164,6 +175,8 @@ export default function App() {
         optional={enabled => { store.setOptionalStop(enabled); setMachine(current => setControls(current, { optionalStop: enabled })); }}
         jog={(axis, direction) => setMachine(current => manualMove(current, axis, direction, handle, options))} setJog={setJogInput} />
     </div>
+    <section className="panel setup-actions"><button disabled={busy} onClick={() => { setJogInput(null); store.resetSetup(); setMachine(setControls(createMachine(machineHome), { optionalStop: store.optionalStop })); }}>{t.sim.resetSetup}</button><p className="hint">{t.sim.resetHint}</p>
+      <button disabled={busy} onClick={() => setMachine(current => ({ ...resetMachine(current), stock: createStock() }))}>{t.sim.newStock}</button><p className="hint">{t.sim.stockHint}</p></section>
     {machine.alarms.length > 0 && screen !== 'ALARM' && <button className="alarm-summary" onClick={() => setScreen('ALARM')}>{t.panel.screens.ALARM} · {t.line} {machine.alarms[0]!.line} · {t.alarms[machine.alarms[0]!.code]}</button>}
     <section className="panel glossary-panel" aria-labelledby="glossary-heading"><h2 id="glossary-heading">{t.glossary}</h2><p className="hint">{t.glossaryHint}</p>
       <div className="glossary-list">{glossary.map(term => <Term key={term.id} id={term.id} />)}</div>

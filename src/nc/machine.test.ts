@@ -8,7 +8,7 @@ import { planBlock, runProgram } from './interpreter';
 import { parseProgram } from './parser';
 import type { InterpreterOptions } from './types';
 const v = (x = 0, y = 0, z = 80) => ({ x, y, z });
-const start = (source: string, options: InterpreterOptions = {}, mode: MachineMode = 'MEMORY') => cycleStart(setMode(createMachine(), mode), source, options);
+const start = (source: string, options: InterpreterOptions = {}, mode: MachineMode = 'MEMORY') => cycleStart(setMode(createMachine(v()), mode), source, options);
 function finish(machine: Machine): Machine {
   for (let index = 0; index < 100 && machine.status === 'running'; index++) machine = tickMachine(machine, 10000);
   return machine;
@@ -173,7 +173,7 @@ describe('stops, RESET and MDI', () => {
     expect(resetMachine(semantic).alarms).toEqual([]);
   });
   it('MDI starts at the current physical/modal state and supports successive incremental commands', () => {
-    let machine = setMode(createMachine(), 'MDI');
+    let machine = setMode(createMachine(v()), 'MDI');
     machine = finish(cycleStart(machine, 'G91 G1 X5. F600 S400 M3', {}));
     machine = finish(cycleStart(machine, 'X2.', {}));
     expect(machine.state).toMatchObject({ position: v(7), distance: 'incremental', spindle: 'cw', speed: 400, feed: 600 });
@@ -194,7 +194,7 @@ describe('stops, RESET and MDI', () => {
   it('does not restart an already running cycle or allow execution in EDIT', () => {
     const machine = start('G0 X1.');
     expect(cycleStart(machine, '', {})).toBe(machine);
-    const edit = createMachine(); expect(cycleStart(edit, 'G0 X1.', {})).toBe(edit);
+    const edit = createMachine(v()); expect(cycleStart(edit, 'G0 X1.', {})).toBe(edit);
   });
   it('prevents mode changes during a held cycle and accepts them after RESET', () => {
     const machine = feedHold(start('G0 X1.'));
@@ -205,15 +205,15 @@ describe('stops, RESET and MDI', () => {
     expect(finish(start('')).status).toBe('complete');
     const machine = start('G0 X1.');
     for (const delta of [0, -1, NaN, Infinity]) expect(tickMachine(machine, delta)).toBe(machine);
-    expect(feedHold(createMachine()).status).toBe('idle');
+    expect(feedHold(createMachine(v())).status).toBe('idle');
   });
   it('clamps invalid override values', () => {
-    const machine = setControls(createMachine(), { feed: 999, spindle: -1, rapid: 3 as 25 });
+    const machine = setControls(createMachine(v()), { feed: 999, spindle: -1, rapid: 3 as 25 });
     expect(machine.controls).toMatchObject({ feed: 150, spindle: 50, rapid: 100 });
     expect(setControls(machine, { feed: NaN, spindle: Infinity }).controls).toEqual(machine.controls);
   });
   it('planBlock returns an atomic alarm on invalid configuration or execution', () => {
-    const state = createMachine().state;
+    const state = createMachine(v()).state;
     const block = parseProgram('G1 X1.').blocks[0]!;
     expect(planBlock(block, state, {}).alarms[0]?.code).toBe('missingFeed');
     expect(planBlock(block, state, { peckClearance: 0 }).alarms[0]?.code).toBe('configuration');
@@ -223,12 +223,12 @@ describe('stops, RESET and MDI', () => {
 describe('manual JOG / RAPID / HANDLE / ZERO RETURN', () => {
   it.each([1, 10, 100] as const)('HANDLE ×%i makes one physical pulse and subtracts work offsets for display', multiplier => {
     const options = { workOffsets: { 54: v(100, 0, 0) } };
-    const machine = manualMove(setMode(createMachine(), 'HANDLE'), 'x', 1, multiplier, options);
+    const machine = manualMove(setMode(createMachine(v()), 'HANDLE'), 'x', 1, multiplier, options);
     expect(machine.state.position.x).toBeCloseTo(.001 * multiplier);
     expect(segmentInWorkCoordinates(machine.segments[0]!).to.x).toBeCloseTo(-100 + .001 * multiplier);
   });
   it('JOG moves both directions at 300 mm/min and respects feed override', () => {
-    let machine = setMode(createMachine(), 'JOG');
+    let machine = setMode(createMachine(v()), 'JOG');
     machine = manualMove(machine, 'z', -1, 1, {});
     expect(machine.state.position.z).toBe(79.5);
     machine = manualMove(setControls(machine, { feed: 50 }), 'y', 1, 1, {});
@@ -236,7 +236,7 @@ describe('manual JOG / RAPID / HANDLE / ZERO RETURN', () => {
     expect(manualMove(setControls(machine, { feed: 0 }), 'y', 1, 1, {}).state.position.y).toBe(.25);
   });
   it('RAPID uses rapid override and ZERO RETURN moves only the selected machine axis', () => {
-    let machine = manualMove(setControls(setMode(createMachine(), 'RAPID'), { rapid: 25 }), 'x', 1, 1, {});
+    let machine = manualMove(setControls(setMode(createMachine(v()), 'RAPID'), { rapid: 25 }), 'x', 1, 1, {});
     expect(machine.state.position.x).toBe(2.5);
     machine = setMode(machine, 'ZERO RETURN');
     machine = manualMove(machine, 'z', 1, 1, { referencePosition: v(10, 20, 100) });
@@ -246,18 +246,18 @@ describe('manual JOG / RAPID / HANDLE / ZERO RETURN', () => {
     expect(manualMove(machine, 'x', 1, 1, {})).toBe(machine);
   });
   it('blocks manual moves in automatic modes and during active/failed cycles', () => {
-    const edit = createMachine(); expect(manualMove(edit, 'x', 1, 1, {})).toBe(edit);
+    const edit = createMachine(v()); expect(manualMove(edit, 'x', 1, 1, {})).toBe(edit);
     const automatic = start('G0 X1.'); expect(manualMove(automatic, 'x', 1, 1, {})).toBe(automatic);
     const alarm = { ...setMode(edit, 'JOG'), status: 'alarm' as const };
     expect(manualMove(alarm, 'x', 1, 1, {})).toBe(alarm);
   });
   it('bounds manual numeric positions and total generated trace', () => {
-    const machine = setMode(createMachine(), 'HANDLE');
+    const machine = setMode(createMachine(v()), 'HANDLE');
     machine.state.position.x = 1e6;
     expect(manualMove(machine, 'x', 1, 100, {}).status).toBe('alarm');
   });
   it('supports arbitrary initial modal state for instant preview without mutating it', () => {
-    const state = createMachine().state;
+    const state = createMachine(v()).state;
     state.position.x = 10; state.distance = 'incremental'; state.motion = 1; state.feed = 100;
     const result = runProgram('X5.', { initialModalState: state });
     expect(result.state.position.x).toBe(15); expect(state.position.x).toBe(10);

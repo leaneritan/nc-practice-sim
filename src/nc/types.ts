@@ -1,3 +1,5 @@
+import type { Heightmap } from './stock';
+import type { SafetySetup } from './safety';
 /** All distances are millimetres; feed is mm/min and spindle speed is rpm. */
 export interface Vec3 { x: number; y: number; z: number }
 export type WorkSystem = 54 | 55 | 56 | 57 | 58 | 59;
@@ -6,6 +8,8 @@ export type AlarmCode =
   | 'syntax' | 'comment' | 'unsupportedWord' | 'unsupportedCode' | 'duplicateWord'
   | 'modalConflict' | 'invalidValue' | 'missingFeed' | 'missingMotion'
   | 'missingOffset' | 'arcDefinition' | 'arcGeometry' | 'cycleParameters'
+  | 'spindleStopped' | 'rapidStock' | 'viseCollision' | 'belowStock' | 'lengthRequired'
+  | 'travelLimit' | 'toolMissing' | 'pocketDiameter' | 'toolChangeUnsafe'
   | 'cycleFrameChange' | 'unexpectedWord' | 'limit' | 'configuration' | 'tappingSpindle';
 export interface Alarm {
   code: AlarmCode;
@@ -85,6 +89,8 @@ export type MotionSegment =
       sweep: number;
     });
 export interface InterpreterOptions {
+  safety?: SafetySetup;
+  initialStock?: Heightmap;
   initialPosition?: Vec3;
   /** Used by MDI/preview to continue from an existing modal state. */
   initialModalState?: ModalState;
@@ -103,6 +109,7 @@ export type ProgramEvent = {
   /** Number of completed segments before this event. */
   afterSegment: number;
 } & (
+  | { kind: 'toolChange'; fromTool: number | null; tool: number; durationMs: number }
   | { kind: 'dwell'; durationMs: number }
   | { kind: 'spindle'; direction: 'cw' | 'ccw' }
   | { kind: 'stop'; code: 0 | 1; paused: boolean }
@@ -113,6 +120,7 @@ export interface ExecutionCursor {
   options: InterpreterOptions;
 }
 export interface RunResult {
+  stock?: Heightmap;
   segments: MotionSegment[];
   state: ModalState;
   alarms: Alarm[];

@@ -248,7 +248,7 @@ describe('D register and Phase 2 samples', () => {
   it.each(Object.entries(en.samples))('runs sample %s in normal and strict modes without decimal warnings', (_, sample) => {
     const results: RunResult[] = [];
     for (const strictDecimals of [false, true]) {
-      let result = run(sample.program, { strictDecimals, optionalStop: true, initialPosition: point(0, 0, 80), referencePosition: point(0, 0, 80) });
+      let result = run(sample.program, { toolLengths: { 1: 0, 2: 0, 3: 0 }, strictDecimals, optionalStop: true, initialPosition: point(0, 0, 80), referencePosition: point(0, 0, 80) });
       while (result.state.paused) result = resumeProgram(result);
       expect(result.alarms).toEqual([]);
       expect(result.warnings).toEqual([]);

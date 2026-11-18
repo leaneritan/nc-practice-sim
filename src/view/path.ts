@@ -3,13 +3,7 @@ import type { MotionSegment, Vec3 } from '../nc';
 export type ViewPlane = 'XY' | 'XZ';
 export interface Point2 { u: number; v: number }
 export interface Outline { min: Vec3; max: Vec3 }
-// Work origin is the stock's lower-left TOP corner; material extends down to Z-20.
-export const stock: Outline = { min: { x: 0, y: 0, z: -20 }, max: { x: 100, y: 60, z: 0 } };
-export const vise: Outline[] = [
-  { min: { x: -10, y: -10, z: -30 }, max: { x: 110, y: 0, z: -5 } },
-  { min: { x: -10, y: 60, z: -30 }, max: { x: 110, y: 70, z: -5 } },
-  { min: { x: -15, y: -15, z: -35 }, max: { x: 115, y: 75, z: -30 } },
-];
+export { stockBox as stock, viseBoxes as vise } from '../nc/stock';
 export function project(point: Vec3, plane: ViewPlane): Point2 {
   return { u: point.x, v: plane === 'XY' ? point.y : point.z };
 }
