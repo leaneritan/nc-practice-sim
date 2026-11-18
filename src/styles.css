@@ -85,3 +85,59 @@ button:disabled { opacity: .45; cursor: default; }
 .event-log ol { padding-left: 24px; max-height: 160px; overflow: auto; }
 .event-log li { margin: 6px 0; }
 @media (max-width: 1250px) and (min-width: 1001px), (max-width: 600px) { .path-views { grid-template-columns: 1fr; } }
+/* Phase 3 operator console: screen on the left, physical-style keys on the right. */
+.machine-app { max-width: 1700px; }
+.machine-console { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; gap: 16px; }
+.display-unit { background: #263730; border: 1px solid #1c2c25; border-radius: 10px; padding: 12px; min-width: 0; box-shadow: 0 4px 14px #1b302217; }
+.machine-status { color: #e1f0df; background: #14271f; border: 1px solid #425b47; padding: 14px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; font-family: Consolas, monospace; font-size: .85rem; }
+.machine-status strong { color: #b9e3b0; }
+.machine-screen { background: #fffefa; padding: 22px; min-height: 650px; border: 1px solid #43554a; min-width: 0; }
+.screen-keys { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding-top: 12px; }
+.screen-keys button { background: #d6ded2; border: 1px solid #f1f4ec; border-bottom: 4px solid #6b7c6a; padding: 10px 4px; color: #27392d; border-radius: 4px; font-size: .72rem; font-weight: 700; }
+.screen-keys button[aria-selected='true'] { background: #bce1af; border-bottom-color: #7dba6c; }
+.operator-panel { background: #dce1d7; border: 1px solid #b8c4b4; border-radius: 10px; padding: 18px; }
+.mode-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mode-keys button, .switch-keys button, .axis-keys button { border: 1px solid #9aa893; border-bottom: 3px solid #8c9a85; border-radius: 5px; background: #f4f6f0; padding: 11px 4px; font-size: .7rem; font-weight: 700; color: #31412f; }
+.mode-keys button[aria-pressed='true'], .switch-keys button[aria-pressed='true'] { background: #c2dda9; border-color: #577c42; }
+.cycle-keys { display: grid; gap: 10px; margin: 22px 0; }
+.cycle-keys button { padding: 14px; border-radius: 6px; border: 1px solid #718169; border-bottom-width: 4px; font-size: .9rem; font-weight: 750; letter-spacing: .02em; }
+.start-key { background: #347140; color: #fff; border-color: #224d29 !important; }
+.hold-key { background: #f5cc62; color: #45350f; border-color: #b0903c !important; }
+.reset-key { background: #eee9e1; color: #773e2c; }
+.switch-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; font-size: .69rem; font-weight: 650; }
+.switch-keys label { display: flex; gap: 5px; align-items: center; }
+.switch-keys input, .strict-setting input { accent-color: #416d34; width: 17px; height: 17px; }
+.overrides { border-block: 1px solid #b7c3b0; margin: 20px 0; padding: 18px 0; display: grid; gap: 14px; font-size: .8rem; }
+.overrides label { display: block; }
+.overrides output { float: right; font-variant-numeric: tabular-nums; }
+.overrides input { display: block; width: 100%; accent-color: #426f35; margin-top: 8px; }
+.overrides select, .manual-pad select { padding: 6px; margin-left: 12px; color: inherit; background: #f7f8f1; border: 1px solid #a6b29d; border-radius: 4px; }
+.manual-pad { border: 1px solid #b7c3b0; border-radius: 5px; padding: 12px; margin: 0 0 14px; font-size: .8rem; }
+.axis-keys { display: grid; gap: 8px; margin-top: 12px; }
+.axis-keys > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.axis-keys button { touch-action: none; font-size: 1rem; }
+.position-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 12px; }
+.position-card { background: #eff3e9; border: 1px solid #d3decb; border-radius: 5px; padding: 14px; }
+.position-card h3 { font-size: .8rem; margin: 0 0 14px; }
+.position-card dl { margin: 0; }
+.position-card dl > div { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.position-card dt { color: #74856a; }
+.position-card dd { margin: 0; font-family: Consolas, monospace; font-size: clamp(1rem, 1.6vw, 1.65rem); color: #284c30; font-variant-numeric: tabular-nums; }
+.machine-screen .sample-picker { grid-template-columns: 1fr auto; align-items: center; }
+.machine-screen .sample-picker label, .machine-screen .sample-picker p { grid-column: 1 / -1; }
+.machine-screen textarea { min-height: 410px; margin-top: 8px; }
+.machine-screen textarea[readonly] { opacity: .85; }
+.strict-setting { display: flex; gap: 8px; align-items: center; font-size: .85rem; }
+.setup-scroll { overflow: auto; max-height: 630px; }
+.setup-scroll table { min-width: 550px; }
+.setup-scroll th { font-size: .74rem; }
+.setup-scroll td { min-width: 105px; }
+.setup-scroll input, .setup-scroll select { padding: 8px; border: 1px solid #aebfa4; border-radius: 4px; background: #fff; color: inherit; font: inherit; width: 100%; min-width: 80px; }
+.setup-scroll button { padding: 7px; border: 1px solid #aebfa4; border-radius: 4px; background: #f0f5ea; color: inherit; white-space: nowrap; }
+.number-field input[aria-invalid='true'] { border-color: #b3472c; }
+.number-field small { display: block; color: #a43e27; min-width: 120px; margin-top: 5px; }
+.preview-embedded .result-panel { border: 0; padding: 0; }
+.preview-standalone { max-width: 1560px; margin: auto; padding: 36px; }
+.alarm-summary { display: block; width: 100%; margin-top: 14px; padding: 14px; background: #fff0eb; color: #963820; border: 1px solid #c77b5e; text-align: left; }
+@media (max-width: 1150px) { .machine-console { grid-template-columns: 1fr; } .operator-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .cycle-keys { margin: 0; } .overrides { margin: 0; } .operator-panel .hint { margin: 0; } }
+@media (max-width: 650px) { .machine-screen { padding: 14px; } .machine-status { grid-template-columns: 1fr; font-size: .75rem; } .position-grid { grid-template-columns: 1fr; } .position-card dl { display: flex; gap: 20px; flex-wrap: wrap; } .position-card dl > div { gap: 12px; } .screen-keys { grid-template-columns: repeat(3, 1fr); } .operator-panel { display: block; } .cycle-keys { margin: 20px 0; } .overrides { margin: 20px 0; } }

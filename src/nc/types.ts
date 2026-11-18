@@ -59,6 +59,10 @@ export interface ModalState {
   paused: { code: 0 | 1; line: number } | null;
 }
 interface SegmentBase {
+  /** Frozen machine-to-work translation for this move, including active H. */
+  workShift: Vec3;
+  coolant: boolean;
+  cycle: DrillCycle['kind'] | null;
   line: number;
   /** Machine reference-point coordinates, including WCS and active tool length. */
   from: Vec3;
@@ -82,6 +86,8 @@ export type MotionSegment =
     });
 export interface InterpreterOptions {
   initialPosition?: Vec3;
+  /** Used by MDI/preview to continue from an existing modal state. */
+  initialModalState?: ModalState;
   /** Machine reference point for G28; default (0, 0, 0). */
   referencePosition?: Vec3;
   strictDecimals?: boolean;

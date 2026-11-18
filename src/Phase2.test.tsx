@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import App from './App';
+import App from './PracticePreview';
 import { en } from './i18n/en';
 import { ja } from './i18n/ja';
 import { useAppStore } from './store';

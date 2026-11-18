@@ -1,3 +1,4 @@
+import { machineToWork, segmentInWorkCoordinates } from '../nc/coordinates';
 import { useEffect, useMemo, useRef } from 'react';
 import { useI18n } from '../i18n';
 import type { MotionSegment, Vec3 } from '../nc';
@@ -96,14 +97,14 @@ function CanvasView({ plane, geometry, position }: {
   </figure>;
 }
 
-export function PathView({ segments, position }: { segments: MotionSegment[]; position: Vec3 }) {
+export function PathView({ segments, position, workShift = { x: 0, y: 0, z: 0 } }: { segments: MotionSegment[]; position: Vec3; workShift?: Vec3 }) {
   const { t } = useI18n();
-  const geometry = useMemo(() => pathGeometry(segments), [segments]);
+  const geometry = useMemo(() => pathGeometry(segments.map(segmentInWorkCoordinates)), [segments]);
   return <section className="path-panel" aria-label={t.pathView}>
     <h3>{t.pathView}</h3>
     <div className="path-views">
-      <CanvasView plane="XY" geometry={geometry} position={position} />
-      <CanvasView plane="XZ" geometry={geometry} position={position} />
+      <CanvasView plane="XY" geometry={geometry} position={machineToWork(position, workShift)} />
+      <CanvasView plane="XZ" geometry={geometry} position={machineToWork(position, workShift)} />
     </div>
     <div className="path-legend">
       <span><i className="legend-rapid" /><Term id="rapid" /></span>

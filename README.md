@@ -2,66 +2,58 @@
 
 ## English
 
-A browser-based CNC learning simulator inspired by Mazak/Mazatrol. **Phase 2** adds canvas XY/XZ toolpath views, stock/vise outlines and three sample programs to the G-code editor and motion list. Japanese/English switching (Japanese by default) and 22 NC terms include readings, romaji and explanations. Built with Vite, React, strict TypeScript, Zustand and Vitest; no backend. Your program, language and input settings are saved in this browser.
+A browser-based CNC practice app inspired by Mazak/Mazatrol, built with Vite, React, strict TypeScript, Zustand and Vitest. **Phase 3** adds a simplified control panel, timed MEMORY execution, MDI, manual axis movement, and editable work offsets/tool data. XY/XZ paths and stock/vise outlines use **WORK coordinates**; POSITION shows machine coordinates separately. Japanese (default) / English, glossary tooltips and three sample G-code programs are included. Programs, language, input settings, G54–G59 and 20 tool records persist in this browser; no backend.
 
-**Screenshot:** _Placeholder — add a screenshot of the Phase 2 editor and XY/XZ views here._
+**Screenshot:** _Placeholder — add the Phase 3 POSITION screen and control panel here._
 
-### Run and test
-
-Requires **Node.js 22.12+** (Node.js 24 LTS recommended) and npm. From the repository directory:
+Requires **Node.js 22.12+** (24 LTS recommended) and npm:
 
 ```sh
 npm install
-npm run dev
+npm run dev             # Open the URL printed by Vite
+npm test                # Unit and UI tests
+npm run test:coverage   # Core coverage with enforced thresholds
+npm run build           # Strict type check + production build
+npm run preview         # Serve the production build
 ```
 
-Open the local URL printed by Vite. Choose one of the three samples, click **Load selected sample**, then **Run**. Samples cover a rounded contour, drilling with dwell/pecks, and tapping. **Continue** resumes M00 stops; M01 stops only with **OPTIONAL STOP** enabled. Hover, focus or tap an underlined term to view its definition; Escape closes it. Switch between **日本語 / English** in the header. Motion coordinates are in mm; feed rates are in mm/min.
+- In **EDIT → PROGRAM**, load a sample or enter G-code. Select **MEMORY → CYCLE START** to run. Try **FEED HOLD**, resume with CYCLE START, or enable **SINGLE BLOCK**. M00 always stops; M01 stops with OPTIONAL STOP enabled. RESET clears the run without moving the machine.
+- **POSITION** shows work/machine/remaining coordinates and live paths. **SHAPE CHECK → Run** calculates an instant preview without moving the machine; RESET clears an executed trace to enable a new preview.
+- **WORK OFFSET** edits G54–G59; **TOOL DATA** edits 20 rows (type, diameters, length, life). Valid values save on blur/Enter. H1–H20 use those lengths. Setup is locked during an active/held cycle.
+- **MDI** executes temporary commands from the current position/modal state. **JOG/RAPID** move while an axis key is held; **HANDLE** moves 0.001 mm ×1/10/100 per click. Arrow keys move X/Y and Page Up/Down move Z when focus is outside inputs/buttons. TAPE is disabled.
+- Decimal-less distance words show a yellow warning: `X10` means 10 mm normally, or 0.010 mm with **Strict decimal input**; `X10.` always means 10 mm. Real controls depend on their settings.
 
-```sh
-npm test                # Run all unit and UI tests once
-npm run test:watch      # Watch tests during development
-npm run test:coverage   # Core coverage, with enforced thresholds
-npm run build           # Strict TypeScript check + production build in dist/
-npm run preview         # Preview the production build locally
-```
+**Coordinate check:** Set G54 to `(100, 200, 30)` and H1 length to `50`, then run `G54 G43 H1 G0 X10. Y15. Z5.`. POSITION should show work `(10, 15, 5)` and machine `(110, 215, 85)`. The path endpoint stays at work `(10, 15, 5)` relative to the stock. See [control and interpreter conventions](docs/nc-semantics.md).
 
-Supported codes include G00–G03, G28, G43/G49, G54–G59, G80–G84, G90/G91, G98/G99, M00/M01, D and P. The page uses metric XY coordinates, zero work offsets and H1 = 0. See [supported codes and coordinate conventions](docs/nc-semantics.md) for details and API configuration.
+**Not yet implemented:** 3D/material removal, collision/travel/safety alarms, magazine animation, tool wear/life consumption, Mazatrol units, lessons, JSON import/export, G41/G42. Tool diameters and life are recorded only.
 
-**Not yet implemented:** 3D views, material removal, machine panel, collision/safety checks, Mazatrol unit editing, lessons and JSON import/export.
-
-**Decimal point warning:** A yellow warning appears for decimal-less distance words. Normal mode reads `X10` as 10 mm; **Strict decimal input** reads it as 0.010 mm. `X10.` remains 10 mm in either mode. This models a common control setting, not every machine. Dwell `P` is an integer in milliseconds; `D` selects a register without applying cutter compensation.
-
-**Practice only:** Practice simulator — always follow company training on real machines. This is a simplified learning tool, not an official Mazak/Mazatrol product or a real CAM/CNC tool. Real controls differ by version. Do not use its programs or simulated results to operate real equipment. No real-machine connection or export is intended.
+**Practice only:** Practice simulator — always follow company training on real machines. This simplified learning app is not an official Mazak/Mazatrol product or a real CAM/CNC tool. Do not use its programs or results to operate real equipment. No machine connection or export is intended.
 
 ## 日本語
 
-Mazak／Mazatrolを参考にした、CNC初心者向けのブラウザー練習用シミュレーターです。**フェーズ2**では、Gコード入力・移動区間の一覧に、canvasのXY/XZ工具経路表示、素材・バイスの輪郭、3つのサンプルを追加しました。日本語／英語切替（初期表示は日本語）と、読み方・ローマ字・説明付きのNC用語22語も利用できます。Vite・React・厳格なTypeScript・Zustand・Vitestを使用し、バックエンドは不要です。プログラム・表示言語・入力設定はブラウザー内に保存されます。
+Mazak／Mazatrolを参考にしたブラウザー練習用CNCシミュレーターです。Vite・React・厳格なTypeScript・Zustand・Vitestを使用しています。**フェーズ3**では、簡略化した操作盤、MEMORYの実時間再生、MDI、手動軸移動、ワーク座標・工具データ編集を追加しました。XY/XZ経路と素材・バイスは**ワーク座標**で表示し、POSITIONには機械座標も別に表示します。日本語（初期設定）／英語、用語解説、3つのGコード例を利用できます。プログラム・言語・入力設定・G54〜G59・工具20本分のデータはブラウザー内に保存され、バックエンドは不要です。
 
-**スクリーンショット：** _準備中 — フェーズ2の入力画面とXY/XZ図をここへ追加します。_
+**スクリーンショット：** _準備中 — フェーズ3のPOSITION画面と操作盤をここへ追加します。_
 
-### 起動とテスト
-
-**Node.js 22.12以降**（Node.js 24 LTS推奨）とnpmが必要です。リポジトリのディレクトリで実行します。
+**Node.js 22.12以降**（24 LTS推奨）とnpmが必要です。
 
 ```sh
 npm install
-npm run dev
+npm run dev             # Viteが表示するURLを開く
+npm test                # ユニットテスト・UIテスト
+npm run test:coverage   # コアのカバレッジ測定・下限検証
+npm run build           # 型チェック・本番用ビルド
+npm run preview         # 本番用ビルドの確認
 ```
 
-Viteが表示するローカルURLを開き、サンプルを選んで**選択したサンプルを読み込む**→**実行**を押します。角丸輪郭、ドウェル・深穴あけ、タップ加工の3例があります。M00の停止は**続行**で再開し、M01は**OPTIONAL STOP**が有効な場合だけ停止します。下線付きの用語にカーソルを合わせるか、フォーカス・タップすると説明が表示され、Escapeで閉じます。ヘッダーの**日本語 / English**で表示言語を切り替えます。座標はmm、送り速度はmm/minです。
+- **EDIT → PROGRAM**でサンプルを読み込むかGコードを入力し、**MEMORY → CYCLE START**で実行します。**FEED HOLD**で一時停止、CYCLE STARTで再開し、**SINGLE BLOCK**では1ブロックずつ進めます。M00は必ず停止し、M01はOPTIONAL STOP有効時に停止します。RESETは機械を動かさず実行を解除します。
+- **POSITION**はワーク座標・機械座標・残移動量と動作経路を表示します。**SHAPE CHECK → 実行**は機械を動かさない即時計算です。実行済み経路はRESETで消去してから新しく確認できます。
+- **WORK OFFSET**でG54〜G59、**TOOL DATA**で20本の工具種類・公称径・実径・長さ・寿命を編集します。有効値はフォーカス移動／Enterで保存し、H1〜H20が各行の工具長を使用します。実行・一時停止中は段取りを変更できません。
+- **MDI**は現在の位置・モーダル状態から一時的な指令を実行します。**JOG/RAPID**は軸キーを押している間移動し、**HANDLE**はクリックごとに0.001 mm ×1/10/100移動します。入力欄・ボタン以外にフォーカスがあるとき、矢印キーでX/Y、Page Up/DownでZを操作できます。TAPEは無効です。
+- 小数点のない寸法指令には黄色の警告を表示します。通常の`X10`は10 mm、**厳密な小数点入力**では0.010 mmです。`X10.`は常に10 mmです。実機の解釈は設定によって異なります。
 
-```sh
-npm test                # ユニットテストとUIテストを1回実行
-npm run test:watch      # 変更を監視してテスト
-npm run test:coverage   # コアのカバレッジを測定・下限を検証
-npm run build           # 厳格な型チェックと本番用ビルド（dist/）
-npm run preview         # 本番用ビルドをローカルで確認
-```
+**座標の確認：** G54を`(100, 200, 30)`、H1の工具長を`50`にして、`G54 G43 H1 G0 X10. Y15. Z5.`を実行します。ワーク座標は`(10, 15, 5)`、機械座標は`(110, 215, 85)`になります。経路の終点は素材に対してワーク座標`(10, 15, 5)`に表示されます。[操作・計算規則](docs/nc-semantics.md)も参照してください。
 
-対応コード：G00–G03、G28、G43/G49、G54–G59、G80–G84、G90/G91、G98/G99、M00/M01、D、Pなど。画面ではXY平面・ミリ単位を使用し、ワーク座標オフセットとH1は0です。[対応範囲と計算規則](docs/nc-semantics.md)を参照してください。
+**未実装：** 3D・材料除去、干渉・ストロークリミットなどの安全確認、マガジンのアニメーション、工具摩耗・寿命消費、Mazatrolユニット、レッスン、JSON入出力、G41/G42。工具径・寿命は記録のみです。
 
-**未実装：** 3D表示、材料除去、操作盤、干渉・安全確認、Mazatrolユニット編集、レッスン、JSON入出力。
-
-**小数点警告：** 小数点のない寸法指令には黄色の警告を表示します。通常モードの`X10`は10 mm、**厳密な小数点入力**では0.010 mmです。`X10.`はどちらも10 mmです。実機の解釈は制御装置と設定によって異なります。ドウェルの`P`は整数のミリ秒、`D`は補正番号の選択のみで、工具径補正は行いません。
-
-**練習専用：** 練習用シミュレーター — 実機の操作は必ず会社の指導に従うこと。本アプリは学習用に簡略化したもので、Mazak／Mazatrolの公式製品でも、実加工用のCAM・CNCツールでもありません。実機の画面や動作は制御装置のバージョンにより異なります。本アプリのプログラムやシミュレーション結果を実機の運転に使用しないでください。実機への接続・出力は対象外です。
+**練習専用：** 練習用シミュレーター — 実機の操作は必ず会社の指導に従うこと。Mazak／Mazatrolの公式製品でも実加工用のCAM・CNCツールでもありません。本アプリのプログラムや結果を実機の運転に使用しないでください。実機への接続・出力は対象外です。
