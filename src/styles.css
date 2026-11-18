@@ -141,3 +141,12 @@ button:disabled { opacity: .45; cursor: default; }
 .alarm-summary { display: block; width: 100%; margin-top: 14px; padding: 14px; background: #fff0eb; color: #963820; border: 1px solid #c77b5e; text-align: left; }
 @media (max-width: 1150px) { .machine-console { grid-template-columns: 1fr; } .operator-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .cycle-keys { margin: 0; } .overrides { margin: 0; } .operator-panel .hint { margin: 0; } }
 @media (max-width: 650px) { .machine-screen { padding: 14px; } .machine-status { grid-template-columns: 1fr; font-size: .75rem; } .position-grid { grid-template-columns: 1fr; } .position-card dl { display: flex; gap: 20px; flex-wrap: wrap; } .position-card dl > div { gap: 12px; } .screen-keys { grid-template-columns: repeat(3, 1fr); } .operator-panel { display: block; } .cycle-keys { margin: 20px 0; } .overrides { margin: 20px 0; } }
+.stock-view { margin-top: 1.5rem; border-top: 1px solid #bdc9bb; padding-top: 1rem; }
+.stock-canvas { width: 100%; overflow: hidden; border-radius: 8px; }
+.stock-canvas canvas { display: block; touch-action: none; }
+.magazine { margin-top: 1.5rem; }
+.magazine-pockets { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .5rem; }
+.magazine-pockets li { display: grid; gap: .3rem; border: 1px solid #a9b8a6; padding: .6rem; border-radius: 6px; background: #edf0e8; font-size: .75rem; }
+.magazine-pockets .mounted { background: #d4e8c0; border: 2px solid #4d7539; }
+.magazine-pockets .selected { border: 2px dashed #ac732c; }
+.setup-actions { margin-top: 1.5rem; }

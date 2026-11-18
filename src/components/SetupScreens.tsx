@@ -44,10 +44,11 @@ export function WorkOffsetScreen({ disabled, active, select, beforeEdit }: {
 }
 export function ToolDataScreen({ disabled, beforeEdit }: { disabled: boolean; beforeEdit: () => void }) {
   const { t } = useI18n();
-  const { tools, setTool } = useAppStore();
+  const { tools, setTool, pocketWidth, setPocketWidth } = useAppStore();
   const fields = ['nominal', 'actual', 'length', 'life'] as const;
   return <section>
     <h2>{t.panel.screens['TOOL DATA']} · <Term id="toolLength" /></h2>
+    <label>{t.sim.pocketWidth}<NumberField label={t.sim.pocketWidth} value={pocketWidth} min={0} max={1000} disabled={disabled} commit={value => { beforeEdit(); setPocketWidth(value); }} /></label><p className="hint">{t.sim.pocketHint}</p>
     <p className="hint">{t.panel.toolNote}</p><p className="hint">{disabled ? t.panel.setupLocked : t.panel.saveHint}</p>
     <div className="setup-scroll"><table><thead><tr><th>{t.panel.pocket}</th><th>{t.panel.kind}</th>{fields.map(field => <th key={field}>{t.panel[field]}</th>)}</tr></thead>
       <tbody>{tools.map(tool => <tr key={tool.pocket}>
@@ -56,7 +57,7 @@ export function ToolDataScreen({ disabled, beforeEdit }: { disabled: boolean; be
           onChange={event => { beforeEdit(); setTool(tool.pocket, { kind: event.target.value as ToolKind }); }}>
           {toolKinds.map(kind => <option value={kind} key={kind}>{t.panel.kinds[kind]}</option>)}
         </select></td>
-        {fields.map(field => <td key={field}><NumberField label={`${t.panel[field]} H${tool.pocket}`} value={tool[field]} min={0}
+        {fields.map(field => <td key={field}><NumberField label={`${t.panel[field]} H${tool.pocket}`} value={tool[field]} min={field === 'actual' || field === 'length' ? .001 : 0}
           max={field === 'length' ? 10000 : field === 'life' ? 1e6 : 1000} disabled={disabled}
           commit={value => { beforeEdit(); setTool(tool.pocket, { [field]: value }); }} /></td>)}
       </tr>)}</tbody></table></div>

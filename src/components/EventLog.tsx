@@ -12,7 +12,7 @@ export function EventLog({ events }: { events: ProgramEvent[] }) {
     <ol aria-label={t.events} start={current * 50 + 1}>
       {events.slice(current * 50, (current + 1) * 50).map((event, index) => <li key={index}>
         <span>{t.line} {event.line} · {t.afterSegment} {event.afterSegment}: </span>
-        {event.kind === 'dwell' ? `${t.dwell} ${event.durationMs} ${t.milliseconds}`
+        {event.kind === 'toolChange' ? `${t.sim.toolChange}: T${event.fromTool ?? 0} → T${event.tool}` : event.kind === 'dwell' ? `${t.dwell} ${event.durationMs} ${t.milliseconds}`
           : event.kind === 'spindle' ? event.direction === 'cw' ? t.spindleCW : t.spindleCCW
           : event.code === 0 ? t.mandatoryStop : event.paused ? t.optionalPaused : t.optionalSkipped}
       </li>)}

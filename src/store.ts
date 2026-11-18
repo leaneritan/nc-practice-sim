@@ -7,6 +7,9 @@ import { ja } from './i18n/ja';
 
 export type Language = 'ja' | 'en';
 interface AppState {
+  pocketWidth: number;
+  setPocketWidth: (value: number) => void;
+  resetSetup: () => void;
   workOffsets: Record<WorkSystem, Vec3>;
   tools: ToolData[];
   setWorkOffset: (system: WorkSystem, axis: keyof Vec3, value: number) => void;
@@ -34,6 +37,8 @@ export const safeStorage = {
 };
 export const useAppStore = create<AppState>()(persist(
   (set) => ({
+    pocketWidth: 0, setPocketWidth: pocketWidth => set({ pocketWidth }),
+    resetSetup: () => set({ workOffsets: defaultOffsets(), tools: defaultTools(), pocketWidth: 0 }),
     workOffsets: defaultOffsets(), tools: defaultTools(),
     setWorkOffset: (system, axis, value) => set(state => ({ workOffsets: { ...state.workOffsets, [system]: { ...state.workOffsets[system], [axis]: value } } })),
     setTool: (pocket, changes) => set(state => ({ tools: state.tools.map(tool => tool.pocket === pocket ? { ...tool, ...changes } : tool) })),
@@ -46,12 +51,13 @@ export const useAppStore = create<AppState>()(persist(
   {
     name: 'nc-practice-phase1',
     storage: createJSONStorage(() => safeStorage),
-    partialize: ({ language, program, strictDecimals, optionalStop, workOffsets, tools }) => ({ language, program, strictDecimals, optionalStop, workOffsets, tools }),
+    partialize: ({ pocketWidth, language, program, strictDecimals, optionalStop, workOffsets, tools }) => ({ pocketWidth, language, program, strictDecimals, optionalStop, workOffsets, tools }),
     merge: (persisted, current) => {
       const saved = persisted as Partial<AppState> | null;
       return {
         ...current,
         ...restoreSetup(saved),
+        pocketWidth: typeof saved?.pocketWidth === 'number' && Number.isFinite(saved.pocketWidth) && saved.pocketWidth >= 0 && saved.pocketWidth <= 1000 ? saved.pocketWidth : 0,
         strictDecimals: saved?.strictDecimals === true,
         optionalStop: saved?.optionalStop === true,
         language: saved?.language === 'en' ? 'en' : 'ja',

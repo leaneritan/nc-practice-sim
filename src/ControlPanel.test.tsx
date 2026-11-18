@@ -1,3 +1,4 @@
+import './test/legacySetup';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -165,11 +166,12 @@ describe('editable setup and WORK-coordinate integration', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(en.panel.invalidNumber);
   });
   it('validates browser setup schema and migrates Phase 1/2 storage safely', () => {
-    expect(restoreSetup(null)).toEqual({ workOffsets: defaultOffsets(), tools: defaultTools() });
+    expect(restoreSetup(null).workOffsets[54]).toEqual({ x: -500, y: -250, z: -400 });
+    expect(restoreSetup(null).tools[0]?.length).toBe(120);
     const restored = restoreSetup({ workOffsets: { 54: { x: NaN, y: 0, z: 0 }, 55: { x: -20, y: 30, z: 40 } }, tools: [null, { pocket: 2, kind: 'tap', nominal: 8, actual: 8, length: 60, life: 100 }] });
-    expect(restored.workOffsets[54]).toEqual({ x: 0, y: 0, z: 0 });
+    expect(restored.workOffsets[54]).toEqual({ x: -500, y: -250, z: -400 });
     expect(restored.workOffsets[55]).toEqual({ x: -20, y: 30, z: 40 });
     expect(restored.tools[1]).toMatchObject({ kind: 'tap', length: 60 });
-    expect(restored.tools[0]).toEqual(defaultTools()[0]);
+    expect(restored.tools[0]).toMatchObject({ kind: 'endMill', length: 120 });
   });
 });

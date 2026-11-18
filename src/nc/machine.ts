@@ -1,3 +1,6 @@
+import { createStock, removeMaterial } from './stock';
+import type { Heightmap } from './stock';
+import { inspectMotions } from './safety';
 import { initialState, MAX_SEGMENTS, planBlock } from './interpreter';
 import { parseProgram } from './parser';
 import { activeWorkShift } from './coordinates';
@@ -15,13 +18,14 @@ interface Pending {
 }
 interface Session { blocks: Block[]; next: number; options: InterpreterOptions; pending: Pending | null }
 export interface Machine {
+  stock: Heightmap;
   mode: MachineMode; status: MachineStatus; state: ModalState; controls: Controls;
   segments: MotionSegment[]; events: ProgramEvent[]; alarms: Alarm[];
   session: Session | null; line: number; programNumber: number | null;
   coolantOverride: boolean | null;
 }
-export function createMachine(): Machine {
-  return { mode: 'EDIT', status: 'idle', state: initialState({ x: 0, y: 0, z: 80 }),
+export function createMachine(position: Vec3 = { x: 0, y: 0, z: 0 }): Machine {
+  return { stock: createStock(), mode: 'EDIT', status: 'idle', state: initialState(position),
     controls: { feed: 100, rapid: 100, spindle: 100, singleBlock: false, dryRun: false, optionalStop: false },
     segments: [], events: [], alarms: [], session: null, line: 0, programNumber: null, coolantOverride: null };
 }
@@ -103,7 +107,7 @@ export function tickMachine(previous: Machine, milliseconds: number): Machine {
       if (!block) { machine.status = 'complete'; return machine; }
       machine.line = block.line;
       if (block.words.some(word => word.letter === 'M' && [8, 9].includes(word.value))) machine.coolantOverride = null;
-      const planned = planBlock(block, machine.state, { ...session.options, optionalStop: machine.controls.optionalStop }, MAX_SEGMENTS - machine.segments.length);
+      const planned = planBlock(block, machine.state, { ...session.options, optionalStop: machine.controls.optionalStop }, MAX_SEGMENTS - machine.segments.length, machine.stock);
       if (planned.alarms.length) { machine.alarms = planned.alarms; machine.status = 'alarm'; return machine; }
       session.pending = { state: planned.state, operations: operations(planned.segments, planned.events), index: 0, fraction: 0, dwellElapsed: 0 };
     }
@@ -120,11 +124,12 @@ export function tickMachine(previous: Machine, milliseconds: number): Machine {
     }
     if (operation.kind === 'event') {
       const event = operation.event;
-      if (event.kind === 'dwell') {
+      if (event.kind === 'dwell' || event.kind === 'toolChange') {
         const delta = Math.min(remaining, event.durationMs - pending.dwellElapsed);
         pending.dwellElapsed += delta; remaining -= delta;
         if (pending.dwellElapsed < event.durationMs) return machine;
       }
+      if (event.kind === 'toolChange') { machine.state.tool = event.tool; machine.state.lengthOffset = null; }
       if (event.kind === 'spindle') machine.state.spindle = event.direction;
       const paused = event.kind === 'stop' && (event.code === 0 || machine.controls.optionalStop);
       if (event.kind === 'stop') machine.state.paused = paused ? { code: event.code, line: event.line } : null;
@@ -142,8 +147,11 @@ export function tickMachine(previous: Machine, milliseconds: number): Machine {
     const length = segmentLength(segment);
     const duration = length / rate * 60000;
     const delta = Math.min(remaining, duration * (1 - pending.fraction));
+    const beforeFraction = pending.fraction;
     pending.fraction = duration <= 1e-9 ? 1 : Math.min(1, pending.fraction + delta / duration);
     remaining -= delta;
+    if (session.options.safety) machine.stock = removeMaterial(machine.stock, segment,
+      session.options.safety.tools.find(tool => tool.pocket === segment.tool), session.options.safety.stockOrigin, beforeFraction, pending.fraction);
     machine.state.position = pointOnSegment(segment, pending.fraction);
     if (pending.fraction < 1 - 1e-10) return machine;
     machine.state.position = { ...segment.to };
@@ -174,7 +182,7 @@ export function manualMove(machine: Machine, axis: keyof Vec3, direction: -1 | 1
   if (locked(machine) || machine.status === 'alarm' || !['JOG', 'RAPID', 'HANDLE', 'ZERO RETURN'].includes(machine.mode)) return machine;
   const from = { ...machine.state.position };
   const to = { ...from };
-  if (machine.mode === 'ZERO RETURN') to[axis] = (options.referencePosition ?? { x: 0, y: 0, z: 80 })[axis];
+  if (machine.mode === 'ZERO RETURN') to[axis] = (options.referencePosition ?? { x: 0, y: 0, z: 0 })[axis];
   else {
     const distance = machine.mode === 'HANDLE' ? .001 * multiplier :
       (machine.mode === 'RAPID' ? 6000 * machine.controls.rapid / 100 : 300 * machine.controls.feed / 100) * milliseconds / 60000;
@@ -188,5 +196,9 @@ export function manualMove(machine: Machine, axis: keyof Vec3, direction: -1 | 1
     feed: null, workSystem: machine.state.workSystem, lengthOffset: machine.state.lengthOffset,
     tool: machine.state.tool, diameterOffset: machine.state.diameterOffset, coolant: machine.state.coolant,
     cycle: null, spindle: machine.state.spindle, speed: machine.state.speed };
+  if (options.safety) {
+    const checked = inspectMotions([segment], options.safety, machine.stock);
+    if (checked.alarms.length) return { ...machine, status: 'alarm', alarms: checked.alarms };
+  }
   return { ...machine, status: 'idle', session: null, state: { ...machine.state, position: to }, segments: [...machine.segments, segment] };
 }

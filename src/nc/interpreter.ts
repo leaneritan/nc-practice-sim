@@ -1,3 +1,6 @@
+import { inspectMotions, validSafety } from './safety';
+import { createStock } from './stock';
+import type { Heightmap } from './stock';
 import { arcFromCenter, arcFromRadius } from './geometry';
 import { parseProgram } from './parser';
 import type {
@@ -34,6 +37,7 @@ export function initialState(position: Vec3 = zero()): ModalState {
 }
 
 interface Configuration {
+  safety?: InterpreterOptions['safety'];
   workOffsets: Record<WorkSystem, Vec3>;
   toolLengths: Record<number, number>;
   peckClearance: number;
@@ -41,6 +45,7 @@ interface Configuration {
   optionalStop: boolean;
 }
 function configure(options: InterpreterOptions): Configuration {
+  if (options.safety && !validSafety(options.safety)) fail('configuration', 'safety');
   const workOffsets = { 54: zero(), 55: zero(), 56: zero(), 57: zero(), 58: zero(), 59: zero(), ...options.workOffsets };
   const toolLengths = { ...(options.toolLengths ?? { 1: 0 }) };
   const peckClearance = options.peckClearance ?? 0.5;
@@ -48,7 +53,7 @@ function configure(options: InterpreterOptions): Configuration {
       Object.entries(workOffsets).some(([key, value]) => ![54, 55, 56, 57, 58, 59].includes(Number(key)) || !vectorValid(value)) ||
       Object.entries(toolLengths).some(([key, value]) => !Number.isInteger(Number(key)) || Number(key) < 1 || !finite(value) || value < 0) ||
       !finite(peckClearance) || peckClearance <= 0) fail('configuration', 'offsets');
-  return { workOffsets, toolLengths, peckClearance, referencePosition: { ...(options.referencePosition ?? zero()) }, optionalStop: options.optionalStop ?? false };
+  return { safety: options.safety, workOffsets, toolLengths, peckClearance, referencePosition: { ...(options.referencePosition ?? zero()) }, optionalStop: options.optionalStop ?? false };
 }
 
 function translation(state: ModalState, config: Configuration): Vec3 {
@@ -117,11 +122,23 @@ function executeBlock(block: Block, previous: ModalState, config: Configuration,
   if (has('D')) state.diameterOffset = get('D');
   if (has('F')) state.feed = get('F');
   if (has('S')) state.speed = get('S');
-  if (has('T')) state.selectedTool = get('T');
+  if (has('T')) {
+    if (config.safety && !config.safety.tools.some(tool => tool.pocket === get('T'))) fail('toolMissing', `T${get('T')}`);
+    state.selectedTool = get('T');
+  }
   for (const code of mcodes) {
     if (code === 3 || code === 4 || code === 5) state.spindle = code === 5 ? 'off' : code === 3 ? 'cw' : 'ccw';
     if (code === 6) {
       if (state.selectedTool === null || state.selectedTool < 1) fail('invalidValue', 'T');
+      if (config.safety) {
+        if (!config.safety.tools.some(tool => tool.pocket === state.selectedTool)) fail('toolMissing', `T${state.selectedTool}`);
+        // ATC only at the top reference, stationary, spindle stopped. No hidden travel.
+        if (Math.abs(previous.position.z - config.referencePosition.z) > 1e-6 || previous.spindle !== 'off' ||
+            hasAxis || mcodes.some(code => code === 3 || code === 4) || state.cycle) fail('toolChangeUnsafe', 'M05 / G28 Z / M06');
+        events.push({ kind: 'toolChange', fromTool: previous.tool, tool: state.selectedTool, durationMs: 2000,
+          line: block.line, position: { ...state.position }, afterSegment: 0 });
+        state.lengthOffset = null;
+      }
       state.tool = state.selectedTool;
     }
     if (code === 8 || code === 9) state.coolant = code === 8;
@@ -245,6 +262,11 @@ function execute(result: RunResult, config: Configuration): RunResult {
     const block = cursor.blocks[index]!;
     try {
       const next = executeBlock(block, result.state, config, MAX_SEGMENTS - result.segments.length);
+      if (config.safety) {
+        const checked = inspectMotions(next.segments, config.safety, result.stock);
+        if (checked.alarms.length) { result.alarms.push(...checked.alarms); result.continuation = null; return result; }
+        result.stock = checked.stock;
+      }
       const offset = result.segments.length;
       result.state = next.state;
       result.events.push(...next.events.map(event => ({ ...event, afterSegment: event.afterSegment + offset })));
@@ -272,6 +294,7 @@ export function runProgram(source: string, options: InterpreterOptions = {}): Ru
     if (!(error instanceof NcError)) throw error;
     return { ...result, state: initialState(), alarms: [{ code: error.code, detail: error.detail, line: 0 }] };
   }
+  if (options.safety) result.stock = options.initialStock ? structuredClone(options.initialStock) : createStock();
   const parsed = parseProgram(source, options);
   result.warnings = parsed.warnings;
   result.alarms = parsed.alarms;
@@ -289,9 +312,11 @@ export function resumeProgram(previous: RunResult): RunResult {
 }
 
 /** Plan one original NC block atomically for the timed control panel. */
-export function planBlock(block: Block, state: ModalState, options: InterpreterOptions, budget = MAX_SEGMENTS) {
+export function planBlock(block: Block, state: ModalState, options: InterpreterOptions, budget = MAX_SEGMENTS, stock?: Heightmap) {
   try {
-    return { ...executeBlock(block, state, configure(options), budget), alarms: [] as import('./types').Alarm[] };
+    const planned = executeBlock(block, state, configure(options), budget);
+    const checked = options.safety ? inspectMotions(planned.segments, options.safety, stock) : { stock, alarms: [] };
+    return checked.alarms.length ? { state, segments: [], events: [], ...checked } : { ...planned, ...checked };
   } catch (error) {
     if (!(error instanceof NcError)) throw error;
     return { state, segments: [], events: [], alarms: [{ code: error.code, detail: error.detail, line: block.line }] };
