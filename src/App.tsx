@@ -1,133 +1,171 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PathView } from './components/PathView';
-import { EventLog } from './components/EventLog';
-import { Term } from './components/Term';
 import { useI18n } from './i18n';
 import { glossary } from './i18n/glossary';
-import { parseProgram, resumeProgram, runProgram } from './nc';
-import type { RunResult, Vec3 } from './nc';
 import { useAppStore } from './store';
+import { Term } from './components/Term';
+import { PathView } from './components/PathView';
+import { EventLog } from './components/EventLog';
+import { ToolDataScreen, WorkOffsetScreen } from './components/SetupScreens';
+import { ControlPanel } from './components/ControlPanel';
+import type { JogInput } from './components/ControlPanel';
+import PracticePreview from './PracticePreview';
+import { parseProgram } from './nc';
+import type { InterpreterOptions, Vec3 } from './nc';
+import { activeWorkShift, machineToWork } from './nc/coordinates';
+import { createMachine, cycleStart, distanceRemaining, feedHold, locked, manualMove, motionRate, currentSegment,
+  resetMachine, setControls, setCoolant, setMode, tickMachine, visibleSegments } from './nc/machine';
 
+type Screen = 'POSITION' | 'PROGRAM' | 'SHAPE CHECK' | 'TOOL DATA' | 'WORK OFFSET' | 'ALARM';
+const axes = ['x', 'y', 'z'] as const;
 export default function App() {
   const { t, language } = useI18n();
-  const { program, setProgram, setLanguage, strictDecimals, optionalStop, setStrictDecimals, setOptionalStop } = useAppStore();
-  const [result, setResult] = useState<RunResult | null>(null);
-  const [executedProgram, setExecutedProgram] = useState('');
-  const [executedSettings, setExecutedSettings] = useState('');
+  const store = useAppStore();
+  const [machine, setMachine] = useState(() => setControls(createMachine(), { optionalStop: store.optionalStop }));
+  const [screen, setScreen] = useState<Screen>('PROGRAM');
+  const [mdi, setMdi] = useState('');
+  const [handle, setHandle] = useState<1 | 10 | 100>(1);
+  const [jogInput, setJogInput] = useState<JogInput>(null);
   const [sample, setSample] = useState<keyof typeof t.samples>('contour');
-  const settingsKey = `${strictDecimals}/${optionalStop}`;
-  const warnings = useMemo(() => parseProgram(program, { strictDecimals }).warnings, [program, strictDecimals]);
-  const [page, setPage] = useState(0);
-  const pageSize = 100;
-  const stale = result !== null && (program !== executedProgram || settingsKey !== executedSettings);
+  const busy = locked(machine);
+  const options = useMemo<InterpreterOptions>(() => ({ workOffsets: store.workOffsets,
+    toolLengths: Object.fromEntries(store.tools.map(tool => [tool.pocket, tool.length])),
+    strictDecimals: store.strictDecimals, optionalStop: store.optionalStop, referencePosition: { x: 0, y: 0, z: 80 },
+  }), [store.workOffsets, store.tools, store.strictDecimals, store.optionalStop]);
+  const activeOptions = machine.session?.options ?? options;
+  const shift = activeWorkShift(machine.state, activeOptions);
+  const work = machineToWork(machine.state.position, shift);
+  const trace = useMemo(() => visibleSegments(machine), [machine]);
+  const source = machine.mode === 'MDI' ? mdi : store.program;
+  const warnings = useMemo(() => parseProgram(source, { strictDecimals: store.strictDecimals }).warnings, [source, store.strictDecimals]);
+  const number = (value: number) => (Math.abs(value) < .0000001 ? 0 : value).toFixed(3);
+  const segment = currentSegment(machine);
+  const actualFeed = machine.status === 'running' && segment ? motionRate(segment, machine.controls) : 0;
+  const actualSpeed = machine.state.spindle === 'off' ? 0 : machine.state.speed * machine.controls.spindle / 100;
+  const editable = !busy && machine.status !== 'alarm' && (machine.mode === 'EDIT' || machine.mode === 'MDI');
+  function invalidate() { setMachine(current => resetMachine(current)); }
+  useEffect(() => { document.documentElement.lang = language; document.title = t.title; }, [language, t.title]);
   useEffect(() => {
-    document.documentElement.lang = language;
-    document.title = t.title;
-  }, [language, t.title]);
-  const number = (value: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 3 }).format(value);
-  const point = (value: Vec3) => `${t.x} ${number(value.x)} · ${t.y} ${number(value.y)} · ${t.z} ${number(value.z)}`;
-  function run() {
-    setResult(runProgram(program, { strictDecimals, optionalStop,
-      initialPosition: { x: 0, y: 0, z: 80 }, referencePosition: { x: 0, y: 0, z: 80 } }));
-    setExecutedProgram(program); setExecutedSettings(settingsKey); setPage(0);
-  }
+    if (machine.status !== 'running') return;
+    const timer = window.setInterval(() => setMachine(current => tickMachine(current, 50)), 50);
+    return () => window.clearInterval(timer);
+  }, [machine.status]);
+  useEffect(() => {
+    if (!jogInput || busy || !['JOG', 'RAPID'].includes(machine.mode)) return;
+    const timer = window.setInterval(() => setMachine(current => manualMove(current, jogInput.axis, jogInput.direction, handle, options)), 100);
+    return () => window.clearInterval(timer);
+  }, [jogInput, busy, machine.mode, handle, options]);
+  useEffect(() => {
+    const map: Record<string, Exclude<JogInput, null>> = {
+      ArrowRight: { axis: 'x', direction: 1 }, ArrowLeft: { axis: 'x', direction: -1 },
+      ArrowUp: { axis: 'y', direction: 1 }, ArrowDown: { axis: 'y', direction: -1 },
+      PageUp: { axis: 'z', direction: 1 }, PageDown: { axis: 'z', direction: -1 },
+    };
+    const stop = () => setJogInput(null);
+    const down = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement && (event.target.matches('input, textarea, select, button') || event.target.isContentEditable)) return;
+      if (!['JOG', 'RAPID', 'HANDLE'].includes(machine.mode) || busy || !map[event.key]) return;
+      event.preventDefault(); if (event.repeat) return;
+      const input = map[event.key]!;
+      setMachine(current => manualMove(current, input.axis, input.direction, handle, options));
+      if (machine.mode !== 'HANDLE') setJogInput(input);
+    };
+    window.addEventListener('keydown', down); window.addEventListener('keyup', stop); window.addEventListener('blur', stop);
+    document.addEventListener('visibilitychange', stop);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', stop); window.removeEventListener('blur', stop); document.removeEventListener('visibilitychange', stop); };
+  }, [machine.mode, busy, handle, options]);
 
-  return <main>
-    <header className="app-header">
-      <div><p className="eyebrow">{t.subtitle}</p><h1>{t.title}</h1></div>
+  function coordinates(label: string, point: Vec3, term: 'workCoordinate' | 'machineCoordinate' | null) {
+    return <section className="position-card" aria-label={label}>
+      <h3>{term ? <Term id={term} label={label} /> : label}</h3>
+      <dl>{axes.map(axis => <div key={axis}><dt>{axis.toUpperCase()}</dt><dd aria-label={`${label} ${axis.toUpperCase()}`}>{number(point[axis])}</dd></div>)}</dl>
+    </section>;
+  }
+  return <main className="machine-app">
+    <header className="app-header"><div><p className="eyebrow">{t.subtitle}</p><h1>{t.title}</h1></div>
       <div role="group" aria-label={t.language} className="language-switch">
-        <button lang="ja" aria-pressed={language === 'ja'} onClick={() => setLanguage('ja')}>{t.japanese}</button>
-        <button lang="en" aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>{t.english}</button>
+        <button lang="ja" aria-pressed={language === 'ja'} onClick={() => store.setLanguage('ja')}>{t.japanese}</button>
+        <button lang="en" aria-pressed={language === 'en'} onClick={() => store.setLanguage('en')}>{t.english}</button>
       </div>
     </header>
-    <p className="disclaimer">{t.disclaimer}</p>
-    <p className="introduction">{t.introduction}</p>
-    <div className="workspace">
-      <section className="panel editor-panel" aria-labelledby="program-heading">
-        <h2 id="program-heading"><Term id="program" label={t.programKey} /></h2>
-        <div className="sample-picker">
-          <label htmlFor="sample">{t.selectSample}</label>
-          <select id="sample" value={sample} onChange={event => setSample(event.target.value as keyof typeof t.samples)}>
-            {Object.entries(t.samples).map(([id, entry]) => <option key={id} value={id}>{entry.name}</option>)}
-          </select>
-          <p className="hint">{t.samples[sample].description}</p>
+    <p className="disclaimer">{t.disclaimer}</p><p className="hint">{t.panel.machineHint}</p>
+    <div className="machine-console">
+      <div className="display-unit">
+        <div className="machine-status" role="status" aria-label={t.panel.statusLabel}>
+          <strong>{t.panel.modes[machine.mode]} · {t.panel.status[machine.status]}</strong>
+          <span>{t.panel.programNo} {machine.programNumber ?? t.dash} · {t.panel.block} {machine.line || t.dash}</span>
+          <span>S {number(actualSpeed)} · F {number(actualFeed)} · T {machine.state.tool ?? t.dash}</span>
+          <span>{t.panel.spindle}: {t.panel[machine.state.spindle]} · {t.panel.coolant}: {machine.state.coolant ? t.panel.on : t.panel.off}</span>
         </div>
-        <label className="sr-only" htmlFor="program">{t.programLabel}</label>
-        <textarea id="program" value={program} onChange={event => setProgram(event.target.value)}
-          spellCheck={false} autoCapitalize="off" autoCorrect="off" maxLength={200000} />
-        <div className="actions">
-          <button className="primary" onClick={run}>{t.run}</button>
-          <button className="secondary" onClick={() => setProgram(t.samples[sample].program)}>{t.reset}</button>
+        <div id="machine-screen" role="tabpanel" aria-labelledby={`tab-${screen.replaceAll(' ', '-')}`} className="machine-screen">
+          {screen === 'POSITION' && <section>
+            <h2>{t.panel.screens.POSITION}</h2>
+            <div className="position-grid">
+              {coordinates(t.panel.workPosition, work, 'workCoordinate')}
+              {coordinates(t.panel.machinePosition, machine.state.position, 'machineCoordinate')}
+              {coordinates(t.panel.remaining, distanceRemaining(machine), null)}
+            </div>
+            <p className="hint">G{machine.state.workSystem} · H{machine.state.lengthOffset ?? 0} · {t.panel.block} {machine.line || t.dash}</p>
+            <PathView segments={trace} position={machine.state.position} workShift={shift} />
+            <p className="hint">{t.panel.traceHint}</p>
+          </section>}
+          {screen === 'PROGRAM' && <section>
+            <h2>{t.panel.screens.PROGRAM}</h2>
+            {machine.mode !== 'MDI' && <div className="sample-picker">
+              <label htmlFor="sample">{t.selectSample}</label>
+              <select id="sample" value={sample} disabled={!editable} onChange={event => setSample(event.target.value as keyof typeof t.samples)}>
+                {Object.entries(t.samples).map(([id, item]) => <option key={id} value={id}>{item.name}</option>)}
+              </select>
+              <button className="secondary" disabled={!editable} onClick={() => { invalidate(); store.setProgram(t.samples[sample].program); }}>{t.reset}</button>
+              <p className="hint">{t.samples[sample].description}</p>
+            </div>}
+            <label htmlFor="machine-program">{machine.mode === 'MDI' ? t.panel.mdiLabel : t.programLabel}</label>
+            <textarea id="machine-program" spellCheck={false} maxLength={200000} value={source} readOnly={!editable}
+              onChange={event => {
+                if (machine.mode === 'MDI') {
+                  // A new MDI entry retains the current G/M modal state and physical position.
+                  setMachine(current => ({ ...current, session: null, status: 'idle', segments: [], events: [], line: 0,
+                    state: { ...current.state, ended: false, paused: null } }));
+                  setMdi(event.target.value);
+                } else { invalidate(); store.setProgram(event.target.value); }
+              }} />
+            <p className="hint">{machine.mode === 'MDI' ? t.panel.mdiHint : t.panel.memoryHint}</p>
+            {!editable && <p className="hint">{busy ? t.panel.setupLocked : t.panel.editHint}</p>}
+            <label className="strict-setting"><input type="checkbox" disabled={busy} checked={store.strictDecimals}
+              onChange={event => { invalidate(); store.setStrictDecimals(event.target.checked); }} />{t.strictDecimals}</label>
+            {warnings.length > 0 && <aside role="note" aria-label={t.decimalWarning} className="decimal-warning">
+              <strong>{t.decimalWarning} · {warnings.length}</strong><p>{t.decimalExplanation}</p>
+              <p>{store.strictDecimals ? t.decimalStrict : t.decimalNormal}</p>
+              <details><summary>{t.explanation}</summary><ul>{warnings.slice(0, 50).map((warning, index) => <li key={index}>{t.line} {warning.line}: {warning.word} · {t.interpreted} {warning.interpreted} {t.mm}</li>)}</ul></details>
+            </aside>}
+          </section>}
+          {screen === 'SHAPE CHECK' && <section>
+            <h2>{t.panel.screens['SHAPE CHECK']} · <Term id="workCoordinate" /></h2>
+            {(busy || machine.session || trace.length > 0) ? <><PathView segments={trace} position={machine.state.position} workShift={shift} />
+              <p className="hint">{t.panel.traceHint}</p>{machine.events.length > 0 && <EventLog events={machine.events} />}
+              {!busy && <p className="hint">{t.panel.previewResetHint}</p>}</>
+              : <PracticePreview embedded showEditor={false} modalState={machine.state} />}
+          </section>}
+          {screen === 'WORK OFFSET' && <WorkOffsetScreen disabled={busy} active={machine.state.workSystem} beforeEdit={invalidate}
+            select={system => setMachine(current => { const reset = resetMachine(current); return { ...reset, state: { ...reset.state, workSystem: system } }; })} />}
+          {screen === 'TOOL DATA' && <ToolDataScreen disabled={busy} beforeEdit={invalidate} />}
+          {screen === 'ALARM' && <section><h2>{t.panel.screens.ALARM}</h2>
+            {machine.alarms.length === 0 ? <p>{t.panel.noAlarms}</p> : machine.alarms.map((alarm, index) => <div role="alert" className="alarm" key={index}>
+              <strong>{t.line} {alarm.line} · {alarm.detail}</strong><p>{t.alarms[alarm.code]}</p>
+            </div>)}<p className="hint">{t.panel.alarmHint}</p>
+          </section>}
         </div>
-        <fieldset className="settings">
-          <label><input type="checkbox" checked={strictDecimals} onChange={event => setStrictDecimals(event.target.checked)} />{t.strictDecimals}</label>
-          <label><input type="checkbox" checked={optionalStop} onChange={event => setOptionalStop(event.target.checked)} />{t.optionalStop}</label>
-        </fieldset>
-        {warnings.length > 0 && <aside role="note" aria-label={t.decimalWarning} className="decimal-warning">
-          <strong>{t.decimalWarning} · {warnings.length}</strong>
-          <p>{t.decimalExplanation}</p>
-          <p>{strictDecimals ? t.decimalStrict : t.decimalNormal}</p>
-          <details><summary>{t.explanation}</summary>
-            <ul>{warnings.slice(0, 50).map((warning, index) => <li key={index}>
-              {t.line} {warning.line}: <code>{warning.word}</code> · {t.interpreted} {number(warning.interpreted)} {t.mm}
-              {' · '}{t.strictValue} {warning.strictValue.toFixed(3)} {t.mm}
-            </li>)}</ul>
-            {warnings.length > 50 && <p>{t.warningLimit}</p>}
-          </details>
-        </aside>}
-        <p className="hint">{t.exampleHint}</p>
-        <p className="hint">{t.assumptions}</p>
-        <details><summary>{t.explanation}</summary><p>{t.capabilities}</p><p>{t.limitNote}</p></details>
-      </section>
-      <section className="panel result-panel" aria-labelledby="results-heading">
-        <div className="result-heading"><h2 id="results-heading"><Term id="motion" /></h2>
-          {result && <span className="badge">{result.segments.length} {t.count}</span>}
-        </div>
-        <p className="hint"><Term id="machineCoordinate" /> · {t.mm}</p>
-        <p className="hint">{t.coordinates}</p>
-        <div role="status" className="status">
-          {stale ? t.stale : result ? result.alarms.length ? t.stopped : result.state.paused ? t.paused : t.complete : t.ready}
-        </div>
-        {result?.state.paused && <div className="pause-panel">
-          <p>{result.state.paused.code === 0 ? t.mandatoryStop : t.optionalPaused} · {t.line} {result.state.paused.line}</p>
-          <button className="primary" disabled={stale} onClick={() => { setResult(resumeProgram(result)); setPage(0); }}>{t.continueRun}</button>
-          <p className="hint">{t.pauseHint}</p>
-        </div>}
-        <PathView segments={result?.segments ?? []} position={result?.state.position ?? { x: 0, y: 0, z: 80 }} />
-        {result && result.events.length > 0 && <EventLog events={result.events} />}
-        {result?.alarms.map((alarm, index) => <div role="alert" className="alarm" key={index}>
-          <strong><Term id="alarm" /> · {t.line} {alarm.line}</strong>
-          <p>{t.alarms[alarm.code]} <code>{alarm.detail}</code></p>
-        </div>)}
-        {result && result.segments.length === 0 && <p className="empty">{t.empty}</p>}
-        {result && result.segments.length > 0 && <div className="table-scroll" tabIndex={0} aria-label={t.results}>
-          <table><thead><tr>
-            <th>{t.line}</th><th>{t.type}</th><th>{t.from} / {t.to}</th>
-            <th><Term id="feed" /></th><th>{t.geometry}</th>
-          </tr></thead><tbody>
-            {result.segments.slice(page * pageSize, (page + 1) * pageSize).map((segment, index) => <tr key={index}>
-              <td className="line-number">{segment.line}</td>
-              <td><Term id={segment.kind} /></td>
-              <td className="coordinates"><div>{point(segment.from)}</div><div>{point(segment.to)}</div></td>
-              <td>{segment.feed === null ? t.dash : `${number(segment.feed)} ${t.mmMin}`}</td>
-              <td>{'center' in segment ? <>
-                <div>{t.center}: {point(segment.center)}</div>
-                <div>{t.radius}: {number(segment.radius)} {t.mm}</div>
-                <div>{t.sweep}: {number(segment.sweep * 180 / Math.PI)}{t.degrees}</div>
-              </> : t.dash}</td>
-            </tr>)}
-          </tbody></table>
-        </div>}
-        {result && result.segments.length > pageSize && <nav className="pagination" aria-label={t.results}>
-          <button disabled={page === 0} onClick={() => setPage(page - 1)}>{t.previous}</button>
-          <span>{t.page} {page + 1} / {Math.ceil(result.segments.length / pageSize)}</span>
-          <button disabled={(page + 1) * pageSize >= result.segments.length} onClick={() => setPage(page + 1)}>{t.next}</button>
-        </nav>}
-      </section>
+        <nav role="tablist" aria-label={t.panel.screensLabel} className="screen-keys">{Object.entries(t.panel.screens).map(([id, label]) =>
+          <button role="tab" id={`tab-${id.replaceAll(' ', '-')}`} aria-controls="machine-screen" aria-selected={screen === id} key={id} onClick={() => setScreen(id as Screen)}>{label}</button>)}</nav>
+      </div>
+      <ControlPanel machine={machine} mode={mode => { setJogInput(null); setMachine(current => setMode(current, mode)); setScreen(['EDIT', 'MDI'].includes(mode) ? 'PROGRAM' : 'POSITION'); }}
+        start={() => { setMachine(current => cycleStart(current, current.mode === 'MDI' ? mdi : store.program, options)); setScreen('POSITION'); }}
+        hold={() => { setJogInput(null); setMachine(feedHold); }} reset={() => { setJogInput(null); setMachine(resetMachine); }}
+        controls={changes => setMachine(current => setControls(current, changes))} coolant={() => setMachine(setCoolant)} handle={handle} setHandle={setHandle}
+        optional={enabled => { store.setOptionalStop(enabled); setMachine(current => setControls(current, { optionalStop: enabled })); }}
+        jog={(axis, direction) => setMachine(current => manualMove(current, axis, direction, handle, options))} setJog={setJogInput} />
     </div>
-    <section className="panel glossary-panel" aria-labelledby="glossary-heading">
-      <h2 id="glossary-heading">{t.glossary}</h2>
-      <p className="hint">{t.glossaryHint}</p>
+    {machine.alarms.length > 0 && screen !== 'ALARM' && <button className="alarm-summary" onClick={() => setScreen('ALARM')}>{t.panel.screens.ALARM} · {t.line} {machine.alarms[0]!.line} · {t.alarms[machine.alarms[0]!.code]}</button>}
+    <section className="panel glossary-panel" aria-labelledby="glossary-heading"><h2 id="glossary-heading">{t.glossary}</h2><p className="hint">{t.glossaryHint}</p>
       <div className="glossary-list">{glossary.map(term => <Term key={term.id} id={term.id} />)}</div>
     </section>
   </main>;

@@ -138,7 +138,7 @@ function executeBlock(block: Block, previous: ModalState, config: Configuration,
     if (!vectorValid(to)) fail('invalidValue', 'XYZ');
     if (axes.every(axis => Math.abs(to[axis] - state.position[axis]) < 1e-10)) return;
     if (segments.length >= budget) fail('limit', 'segments');
-    segments.push({ kind, from: { ...state.position }, to: { ...to }, line: block.line,
+    segments.push({ kind, workShift: { ...shift }, coolant: state.coolant, cycle: state.cycle?.kind ?? null, from: { ...state.position }, to: { ...to }, line: block.line,
       feed: kind === 'rapid' ? null : state.feed, workSystem: state.workSystem,
       lengthOffset: state.lengthOffset, tool: state.tool, diameterOffset: state.diameterOffset, spindle: state.spindle, speed: state.speed });
     state.position = { ...to };
@@ -218,7 +218,7 @@ function executeBlock(block: Block, previous: ModalState, config: Configuration,
       : arcFromCenter(state.position, target, values.get('I') ?? 0, values.get('J') ?? 0, clockwise);
     if (!arc) fail('arcGeometry', 'I/J/R');
     if (segments.length >= budget) fail('limit', 'segments');
-    segments.push({ kind: clockwise ? 'arcCW' : 'arcCCW', from: { ...state.position }, to: { ...target },
+    segments.push({ workShift: { ...shift }, coolant: state.coolant, cycle: null, kind: clockwise ? 'arcCW' : 'arcCCW', from: { ...state.position }, to: { ...target },
       line: block.line, feed: state.feed, workSystem: state.workSystem, lengthOffset: state.lengthOffset,
       tool: state.tool, diameterOffset: state.diameterOffset, spindle: state.spindle, speed: state.speed, ...arc });
     state.position = { ...target };
@@ -265,7 +265,7 @@ function execute(result: RunResult, config: Configuration): RunResult {
 
 /** Parse first; a syntax error prevents all execution. Options are snapshotted for Continue. */
 export function runProgram(source: string, options: InterpreterOptions = {}): RunResult {
-  const result: RunResult = { state: initialState(options.initialPosition), segments: [], alarms: [], warnings: [], events: [], continuation: null };
+  const result: RunResult = { state: options.initialModalState ? structuredClone(options.initialModalState) : initialState(options.initialPosition), segments: [], alarms: [], warnings: [], events: [], continuation: null };
   let config: Configuration;
   try { config = configure(options); }
   catch (error) {
@@ -286,4 +286,14 @@ export function resumeProgram(previous: RunResult): RunResult {
   const result = structuredClone(previous);
   result.state.paused = null;
   return execute(result, configure(result.continuation!.options));
+}
+
+/** Plan one original NC block atomically for the timed control panel. */
+export function planBlock(block: Block, state: ModalState, options: InterpreterOptions, budget = MAX_SEGMENTS) {
+  try {
+    return { ...executeBlock(block, state, configure(options), budget), alarms: [] as import('./types').Alarm[] };
+  } catch (error) {
+    if (!(error instanceof NcError)) throw error;
+    return { state, segments: [], events: [], alarms: [{ code: error.code, detail: error.detail, line: block.line }] };
+  }
 }

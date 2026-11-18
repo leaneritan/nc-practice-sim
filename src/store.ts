@@ -1,9 +1,16 @@
+import { defaultOffsets, defaultTools, restoreSetup } from './setup';
+import type { ToolData } from './setup';
+import type { Vec3, WorkSystem } from './nc';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ja } from './i18n/ja';
 
 export type Language = 'ja' | 'en';
 interface AppState {
+  workOffsets: Record<WorkSystem, Vec3>;
+  tools: ToolData[];
+  setWorkOffset: (system: WorkSystem, axis: keyof Vec3, value: number) => void;
+  setTool: (pocket: number, changes: Partial<ToolData>) => void;
   language: Language;
   program: string;
   strictDecimals: boolean;
@@ -27,6 +34,9 @@ export const safeStorage = {
 };
 export const useAppStore = create<AppState>()(persist(
   (set) => ({
+    workOffsets: defaultOffsets(), tools: defaultTools(),
+    setWorkOffset: (system, axis, value) => set(state => ({ workOffsets: { ...state.workOffsets, [system]: { ...state.workOffsets[system], [axis]: value } } })),
+    setTool: (pocket, changes) => set(state => ({ tools: state.tools.map(tool => tool.pocket === pocket ? { ...tool, ...changes } : tool) })),
     language: 'ja', program: ja.sampleProgram, strictDecimals: false, optionalStop: false,
     setStrictDecimals: (strictDecimals) => set({ strictDecimals }),
     setOptionalStop: (optionalStop) => set({ optionalStop }),
@@ -36,11 +46,12 @@ export const useAppStore = create<AppState>()(persist(
   {
     name: 'nc-practice-phase1',
     storage: createJSONStorage(() => safeStorage),
-    partialize: ({ language, program, strictDecimals, optionalStop }) => ({ language, program, strictDecimals, optionalStop }),
+    partialize: ({ language, program, strictDecimals, optionalStop, workOffsets, tools }) => ({ language, program, strictDecimals, optionalStop, workOffsets, tools }),
     merge: (persisted, current) => {
       const saved = persisted as Partial<AppState> | null;
       return {
         ...current,
+        ...restoreSetup(saved),
         strictDecimals: saved?.strictDecimals === true,
         optionalStop: saved?.optionalStop === true,
         language: saved?.language === 'en' ? 'en' : 'ja',
