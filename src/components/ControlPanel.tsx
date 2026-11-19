@@ -1,11 +1,12 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useI18n } from '../i18n';
 import type { Machine, MachineMode, Controls } from '../nc/machine';
 import { locked } from '../nc/machine';
 import type { Vec3 } from '../nc';
 
 export type JogInput = { axis: keyof Vec3; direction: -1 | 1 } | null;
-export function ControlPanel({ machine, mode, start, hold, reset, controls, coolant, handle, setHandle, jog, setJog, optional }: {
+export function ControlPanel({ help, machine, mode, start, hold, reset, controls, coolant, handle, setHandle, jog, setJog, optional }: {
+  help?: ReactNode;
   machine: Machine; mode: (mode: MachineMode) => void; start: () => void; hold: () => void; reset: () => void;
   controls: (controls: Partial<Controls>) => void; coolant: () => void; handle: 1 | 10 | 100;
   setHandle: Dispatch<SetStateAction<1 | 10 | 100>>; jog: (axis: keyof Vec3, direction: -1 | 1) => void;
@@ -15,6 +16,7 @@ export function ControlPanel({ machine, mode, start, hold, reset, controls, cool
   const manual = ['JOG', 'RAPID', 'HANDLE', 'ZERO RETURN'].includes(machine.mode);
   const blocked = locked(machine) || machine.status === 'alarm';
   return <aside className="operator-panel" aria-label={t.panel.controls}>
+    <div className="control-help">{help}</div>
     <div role="group" aria-label={t.panel.mode} className="mode-keys">
       {Object.entries(t.panel.modes).map(([id, label]) => <button key={id} disabled={id === 'TAPE' || blocked}
         aria-pressed={machine.mode === id} onClick={() => mode(id as MachineMode)}>{label}</button>)}

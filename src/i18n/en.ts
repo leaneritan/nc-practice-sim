@@ -84,6 +84,12 @@ M30
 %`;
 
 export const en = {
+  guide: {
+    title: 'How to use', help: 'Help', symbol: '?', back: 'Back to simulator', contents: 'Guide chapters',
+    loading: 'Opening guide…', table: 'Reference table',
+    holdHint: 'Opening the guide holds a running cycle and stops jog input. Returning does not resume motion; use CYCLE START when ready.',
+    chapters: { start: 'Start here', basics: 'Machine basics', controls: 'Control panel', setup: 'Setup', gcode: 'Writing G-code', mazatrol: 'Mazatrol', checking: 'Running and checking', safety: 'Safety habits for the real machine' },
+  },
   maz: {
   entry: 'Pocket entry', ramp: 'Zig-zag ramp (3° maximum)', plunge: 'Plunge (30% feed)',
   unitNames: { COMMON: 'COMMON', WPC: 'WPC', DRILLING: 'DRILLING', 'RGH CBOR': 'RGH CBOR', TAPPING: 'TAPPING', REAMING: 'REAMING', 'FACE MILL': 'FACE MILL', POCKET: 'POCKET', 'LINE OUT': 'LINE OUT', END: 'END' },
@@ -291,7 +297,7 @@ export const en = {
   }
 },
   title: 'NC Practice Simulator',
-  subtitle: 'Phase 5 · Conversational programming',
+  subtitle: 'Phase 6A · User guide',
   language: 'Language',
   japanese: '日本語',
   english: 'English',

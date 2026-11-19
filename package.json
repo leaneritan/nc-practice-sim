@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "guide:export": "node scripts/export-guide.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
@@ -14,6 +15,8 @@
   "dependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "three": "^0.187.0",
     "zustand": "^5.0.8"
   },

@@ -2,6 +2,12 @@ import { en } from './en';
 import type { Messages } from './en';
 
 export const ja: Messages = {
+  guide: {
+    title: '使い方ガイド', help: 'ヘルプ', symbol: '?', back: 'シミュレーターに戻る', contents: 'ガイドの目次',
+    loading: 'ガイドを開いています…', table: '参照表',
+    holdHint: 'ガイドを開くと運転中のサイクルは一時停止し、ジョグ入力も止まります。戻っても自動再開しません。準備後にCYCLE STARTで再開してください。',
+    chapters: { start: 'はじめに', basics: '機械の基礎', controls: '操作盤', setup: '段取り', gcode: 'Gコードを書く', mazatrol: 'Mazatrol', checking: '運転と確認', safety: '実機での安全習慣' },
+  },
   maz: {
   entry: 'ポケット進入', ramp: '往復ランプ進入（最大3°）', plunge: '突込み（送り30%）',
   unitNames: { COMMON: 'COMMON', WPC: 'WPC', DRILLING: 'DRILLING', 'RGH CBOR': 'RGH CBOR', TAPPING: 'TAPPING', REAMING: 'REAMING', 'FACE MILL': 'FACE MILL', POCKET: 'POCKET', 'LINE OUT': 'LINE OUT', END: 'END' },
@@ -209,7 +215,7 @@ export const ja: Messages = {
   }
 },
   title: 'NC練習シミュレーター',
-  subtitle: 'フェーズ5 · 対話プログラミング',
+  subtitle: 'フェーズ6A · 使い方ガイド',
   language: '表示言語',
   japanese: '日本語',
   english: 'English',
