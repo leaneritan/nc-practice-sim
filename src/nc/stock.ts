@@ -9,7 +9,8 @@ export const viseBoxes: Box[] = [
   { min: { x: -10, y: 60, z: -30 }, max: { x: 110, y: 70, z: -5 } },
   { min: { x: -15, y: -15, z: -35 }, max: { x: 115, y: 75, z: -30 } },
 ];
-export interface Heightmap { width: number; height: number; cell: number; heights: Float32Array; revision: number }
+export interface DrilledHole { x: number; y: number; bottom: number; diameter: number }
+export interface Heightmap { width: number; height: number; cell: number; heights: Float32Array; revision: number; drilledHoles?: DrilledHole[] }
 /** One millimetre grid, including the stock boundary. Z is the highest remaining surface. */
 export function createStock(): Heightmap {
   return { width: 101, height: 61, cell: 1, heights: new Float32Array(101 * 61), revision: 0 };
@@ -61,6 +62,20 @@ export function cutAt(map: Heightmap, tool: CuttingTool, tip: Vec3): boolean {
   });
   return changed;
 }
+/** Record only reached drill-tip depths, in the fixed stock frame. Spotting is not a pilot hole. */
+export function recordDrilling(map: Heightmap, segment: MotionSegment, tool: CuttingTool | undefined, origin: Vec3, fraction = 1): Heightmap {
+  if (tool?.kind !== 'drill' || segment.kind !== 'linear' || segment.spindle === 'off' || segment.speed <= 0 ||
+      segment.to.z >= segment.from.z || Math.hypot(segment.to.x - segment.from.x, segment.to.y - segment.from.y) > 1e-7) return map;
+  const tip = physicalTip(pointAt(segment, fraction), origin, tool);
+  if (tip.z >= stockBox.max.z || tip.x < stockBox.min.x || tip.x > stockBox.max.x || tip.y < stockBox.min.y || tip.y > stockBox.max.y) return map;
+  const holes = map.drilledHoles ?? [];
+  const index = holes.findIndex(h => Math.hypot(h.x - tip.x, h.y - tip.y) < 1e-4 && Math.abs(h.diameter - tool.actual) < 1e-6);
+  if (index >= 0 && holes[index]!.bottom <= tip.z) return map;
+  const next = [...holes];
+  const hole = { x: tip.x, y: tip.y, bottom: tip.z, diameter: tool.actual };
+  if (index < 0) next.push(hole); else next[index] = hole;
+  return { ...map, drilledHoles: next };
+}
 /** Incremental immutable stock update, used for the partially traversed live motion. */
 export function removeMaterial(map: Heightmap, segment: MotionSegment, tool: CuttingTool | undefined, origin: Vec3, from = 0, to = 1): Heightmap {
   if (!tool || segment.kind === 'rapid' || segment.spindle === 'off' || segment.speed <= 0 || to <= from) return map;
@@ -72,7 +87,7 @@ export function removeMaterial(map: Heightmap, segment: MotionSegment, tool: Cut
     changed = cutAt(next, tool, physicalTip(pointAt(segment, i / steps), origin, tool)) || changed;
   }
   changed = cutAt(next, tool, physicalTip(pointAt(segment, to), origin, tool)) || changed;
-  return changed ? { ...next, revision: map.revision + 1 } : map;
+  return recordDrilling(changed ? { ...next, revision: map.revision + 1 } : map, segment, tool, origin, to);
 }
 export function removedVolume(map: Heightmap): number {
   // Trapezoidal boundary weights avoid counting an extra row/column of material.

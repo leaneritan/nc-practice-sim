@@ -2,9 +2,9 @@
 
 ## English
 
-A browser-based CNC practice app inspired by Mazak/Mazatrol, built with Vite, React, strict TypeScript, Zustand and Vitest. **Phase 4** adds a three.js 3D heightmap, tool-shaped material removal, a 20-pocket M06 magazine, and line-numbered safety alarms to the control panel. XY/XZ paths and stock/vise outlines use **WORK coordinates**; POSITION shows machine coordinates separately. Japanese (default) / English, glossary tooltips and three sample G-code programs are included. Programs, language, input settings, G54–G59, tool records and the optional pocket-width limit persist in this browser; no backend. Stock removal and machine position are session-only.
+A browser-based CNC practice app inspired by Mazak/Mazatrol, built with Vite, React, strict TypeScript, Zustand and Vitest. **Phase 5** adds a program library and Mazatrol-style unit forms, automatic editable tool sequences, unit shape previews, and equivalent G-code. Both formats share the control panel, 3D stock removal, magazine and safety checks. XY/XZ paths and stock/vise outlines use **WORK coordinates**; POSITION shows machine coordinates separately. Japanese (default) / English, glossary tooltips and three sample G-code programs are included. EIA/ISO and Mazatrol programs, language, input settings, G54–G59, tool records and the optional pocket-width limit persist in this browser; no backend. Stock removal and machine position are session-only.
 
-**Screenshot:** _Placeholder — add the Phase 4 POSITION screen and control panel here._
+**Screenshot:** _Placeholder — add the Phase 5 unit editor and SHAPE CHECK here._
 
 Requires **Node.js 22.12+** (24 LTS recommended) and npm:
 
@@ -17,7 +17,11 @@ npm run build           # Strict type check + production build
 npm run preview         # Serve the production build
 ```
 
-- In **EDIT → PROGRAM**, load a sample or enter G-code. Select **MEMORY → CYCLE START** to run. Try **FEED HOLD**, resume with CYCLE START, or enable **SINGLE BLOCK**. M00 always stops; M01 stops with OPTIONAL STOP enabled. RESET clears the run without moving the machine or restoring removed material.
+- In **EDIT → PROGRAM**, open **Program list / Create program**. Enter a name and choose **Mazatrol** or **EIA/ISO (G-code)**, then Create program. The original EIA program remains available in the list.
+- For the conversational example, first use **Reset to default setup**, then **Load Mazatrol sample**. It faces 1 mm, drills/taps four M8 holes, and mills a 40×20 pocket to stock Z−5. Click a unit to edit its forms, shape rows or tool sequence. **Generate tool sequence** replaces that unit's rows with practice starting values; subsequent edits are retained. TOOL DATA must match the selected tools.
+- Hole rows show editable total depths. Blind tapping/reaming pilots include bottom clearance and drill-point allowance; the shared alarm rejects a finishing depth at or below its pilot bottom. The default Ø10, 90° spot tool makes a chamfer 0.5 mm wider than the hole. Reload the sample after resetting older saved setups. Pocket entry defaults to a ≤3° zig-zag ramp; **Plunge** uses 30% feed.
+- Open **View as G-code** to compare the equivalent program. **SHAPE CHECK** draws the unit shapes immediately; **Run** calculates the same stock removal and alarms as MEMORY. WPC is a translation/rotation relative to G54. SINGLE BLOCK stops on each generated block, with its unit shown on POSITION.
+- For EIA/ISO, load a sample or enter G-code. Select **MEMORY → CYCLE START** to run. Try **FEED HOLD**, resume with CYCLE START, or enable **SINGLE BLOCK**. M00 always stops; M01 stops with OPTIONAL STOP enabled. RESET clears the run without moving the machine or restoring removed material.
 - **POSITION** shows work/machine/remaining coordinates and live paths. **SHAPE CHECK → Run** calculates an instant preview without moving the machine; RESET clears an executed trace to enable a new preview.
 - **WORK OFFSET** edits G54–G59; **TOOL DATA** edits 20 rows (type, diameters, length, life). Valid values save on blur/Enter. H1–H20 use those lengths. Setup is locked during an active/held cycle.
 - **MDI** executes temporary commands from the current position/modal state. `T` preselects a tool; `M06` exchanges it in two simulated seconds at machine Z0 with the spindle stopped. Apply `G43 H` before approaching stock. **JOG/RAPID** move while an axis key is held; **HANDLE** moves 0.001 mm ×1/10/100 per click. Arrow keys move X/Y and Page Up/Down move Z when focus is outside inputs/buttons. TAPE is disabled.
@@ -36,15 +40,15 @@ With H1 = 120 mm, POSITION shows work `(10, 15, 5)` and machine `(−490, −235
 
 **Safety checks:** spindle stopped while cutting, missing feed, rapid into remaining material, vise collision, below-stock cutting, missing length compensation, travel limits, missing tool, and tool diameter exceeding an explicitly configured pocket width. Set that width in TOOL DATA (0 = unset); G-code does not identify pocket boundaries. Unsafe source blocks are rejected before motion/removal. Checks also apply to manual movement; M06 has a home/spindle interlock.
 
-**Not yet implemented:** Mazatrol units, lessons, JSON import/export, G41/G42, wear/life consumption, alternate machines. The 1 mm heightmap cannot represent undercuts or threads; collisions use sampled cutter envelopes, not holders, real servo physics, or certified machine geometry. WebGL is required for 3D; the core simulation and 2D views still work without it.
+**Not yet implemented:** lessons, JSON import/export, G41/G42, wear/life consumption, alternate machines or exact Matrix/Smooth compatibility. LINE OUT currently accepts closed convex contours with tangent arc joins. Pockets are rectangular with tool-radius internal corners; automatic cutting data are editable practice suggestions, not machining recommendations. The 1 mm heightmap cannot represent undercuts or threads; collisions use sampled cutter envelopes, not holders, real servo physics, or certified machine geometry. WebGL is required for 3D; the core simulation and 2D views still work without it.
 
 **Practice only:** Practice simulator — always follow company training on real machines. This simplified learning app is not an official Mazak/Mazatrol product or a real CAM/CNC tool. Do not use its programs or results to operate real equipment. No machine connection or export is intended.
 
 ## 日本語
 
-Mazak／Mazatrolを参考にしたブラウザー練習用CNCシミュレーターです。Vite・React・厳格なTypeScript・Zustand・Vitestを使用しています。**フェーズ4**では、three.jsの3D高さマップ、工具形状による材料除去、20本の工具マガジンとM06交換、行番号付き安全アラームを追加しました。XY/XZ経路と素材・バイスは**ワーク座標**で表示し、POSITIONには機械座標も別に表示します。日本語（初期設定）／英語、用語解説、3つのGコード例を利用できます。プログラム・言語・入力設定・G54〜G59・工具データ・ポケット幅はブラウザー内に保存され、バックエンドは不要です。除去形状・機械位置は再読込み時に初期化します。
+Mazak／Mazatrolを参考にしたブラウザー練習用CNCシミュレーターです。Vite・React・厳格なTypeScript・Zustand・Vitestを使用しています。**フェーズ5**では、プログラム一覧、Mazatrol風ユニット入力、自動工具展開、形状プレビュー、比較用Gコード表示を追加しました。両形式は操作盤・3D材料除去・マガジン・安全アラームを共用します。XY/XZ経路と素材・バイスは**ワーク座標**で表示し、POSITIONには機械座標も別に表示します。日本語（初期設定）／英語、用語解説、3つのGコード例を利用できます。プログラム・言語・入力設定・G54〜G59・工具データ・ポケット幅はブラウザー内に保存され、バックエンドは不要です。除去形状・機械位置は再読込み時に初期化します。
 
-**スクリーンショット：** _準備中 — フェーズ4のPOSITION画面と操作盤をここへ追加します。_
+**スクリーンショット：** _準備中 — フェーズ5のユニット編集・SHAPE CHECKをここへ追加します。_
 
 **Node.js 22.12以降**（24 LTS推奨）とnpmが必要です。
 
@@ -57,7 +61,11 @@ npm run build           # 型チェック・本番用ビルド
 npm run preview         # 本番用ビルドの確認
 ```
 
-- **EDIT → PROGRAM**でサンプルを読み込むかGコードを入力し、**MEMORY → CYCLE START**で実行します。**FEED HOLD**で一時停止、CYCLE STARTで再開し、**SINGLE BLOCK**では1ブロックずつ進めます。M00は必ず停止し、M01はOPTIONAL STOP有効時に停止します。RESETは機械を動かさず実行を解除し、除去形状は保持します。
+- **EDIT → PROGRAM**で**プログラム一覧・新規作成**を開き、名前と**Mazatrol／EIA/ISO (G-code)**を選んで作成します。元のEIAプログラムも一覧に残ります。
+- 対話式の例は**段取りを初期値に戻す**→**Mazatrolサンプルを読み込む**で開始します。上面を1 mm削り、M8タップ4穴、40×20のポケットを素材Z−5まで加工します。ユニットを選ぶと項目・形状行・工具行を編集できます。**工具を自動展開**は選択ユニットの行を練習用初期値で置換し、その後は手動編集できます。TOOL DATAと工具を一致させてください。
+- 工具行で総深さを編集できます。止まりタップ・リーマの下穴には底部余裕とドリル先端長を追加し、下穴底以上の仕上げ深さは共通アラームで停止します。標準の径10・90°スポット工具で穴径＋0.5 mmの面取りを作ります。古い段取りは初期化後にサンプルを再読込みしてください。ポケットは最大3°の往復ランプ進入が初期値で、突込み選択時は送り30%です。
+- **Gコードで表示**で等価な指令を比較できます。**SHAPE CHECK**は実行前の形状を表示し、**実行**でMEMORYと共通の除去・警告を計算します。WPCはG54に対する移動・回転です。SINGLE BLOCKは生成ブロックごとに停止し、POSITIONに元のユニットを表示します。
+- EIA/ISOではサンプルを読み込むかGコードを入力し、**MEMORY → CYCLE START**で実行します。**FEED HOLD**で一時停止、CYCLE STARTで再開し、**SINGLE BLOCK**では1ブロックずつ進めます。M00は必ず停止し、M01はOPTIONAL STOP有効時に停止します。RESETは機械を動かさず実行を解除し、除去形状は保持します。
 - **POSITION**はワーク座標・機械座標・残移動量と動作経路を表示します。**SHAPE CHECK → 実行**は機械を動かさない即時計算です。実行済み経路はRESETで消去してから新しく確認できます。
 - **WORK OFFSET**でG54〜G59、**TOOL DATA**で20本の工具種類・公称径・実径・長さ・寿命を編集します。有効値はフォーカス移動／Enterで保存し、H1〜H20が各行の工具長を使用します。実行・一時停止中は段取りを変更できません。
 - **MDI**は現在の位置・モーダル状態から一時的な指令を実行します。Tで工具を選び、主軸停止・機械Z0でM06により2秒の交換を行います。素材へ接近する前にG43 Hを指定します。**JOG/RAPID**は軸キーを押している間移動し、**HANDLE**はクリックごとに0.001 mm ×1/10/100移動します。入力欄・ボタン以外にフォーカスがあるとき、矢印キーでX/Y、Page Up/DownでZを操作できます。TAPEは無効です。
@@ -76,6 +84,6 @@ H1 = 120 mmなので、ワーク座標は`(10, 15, 5)`、機械座標は`(−490
 
 **安全アラーム：** 切削中の主軸停止、送り未指定、未除去素材への早送り、バイス干渉、素材底面より下への切削、工具長補正なし、ストロークリミット、工具未登録、指定ポケット幅より大きい工具径を検査します。ポケット幅はTOOL DATAで指定します（0＝未設定）。Gコード経路だけでは形状境界は分かりません。危険な入力ブロックは移動・除去前に停止します。手動移動にも適用し、M06には原点・主軸のインターロックがあります。
 
-**未実装：** Mazatrolユニット、レッスン、JSON入出力、G41/G42、摩耗・寿命消費、別機種。1 mmの高さマップではアンダーカット・ねじ形状は表現できません。干渉は工具包絡形状の標本検査で、ホルダー・サーボの物理計算・実機の正確な形状は未再現です。3DにはWebGLが必要ですが、利用できない場合も計算・2D表示は動作します。
+**未実装：** レッスン、JSON入出力、G41/G42、摩耗・寿命消費、別機種、Matrix/Smoothとの完全互換。LINE OUTは閉じた凸輪郭・接線の円弧接続に限定し、ポケットは工具半径の隅Rを持つ長方形です。自動切削条件は編集可能な練習用初期値で、実加工の推奨値ではありません。1 mmの高さマップではアンダーカット・ねじ形状は表現できません。干渉は工具包絡形状の標本検査で、ホルダー・サーボの物理計算・実機の正確な形状は未再現です。3DにはWebGLが必要ですが、利用できない場合も計算・2D表示は動作します。
 
 **練習専用：** 練習用シミュレーター — 実機の操作は必ず会社の指導に従うこと。Mazak／Mazatrolの公式製品でも実加工用のCAM・CNCツールでもありません。本アプリのプログラムや結果を実機の運転に使用しないでください。実機への接続・出力は対象外です。
