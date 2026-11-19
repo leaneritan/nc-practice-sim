@@ -1,4 +1,5 @@
 import type { CuttingTool } from "../stock";
+import { pointDepth } from "./model";
 import type {
   CuttingUnit,
   Edge,
@@ -258,6 +259,12 @@ export function expandMazatrol(
         fail("structure");
       const u = unit as CuttingUnit;
       positive(u.depth);
+      if (
+        u.kind === "POCKET" &&
+        u.entry !== undefined &&
+        !["ramp", "plunge"].includes(u.entry)
+      )
+        fail("value");
       if (common.initialZ <= u.top + 1) fail("clearance");
       let points: XY[] = [];
       if ("shapes" in u) {
@@ -341,14 +348,15 @@ export function expandMazatrol(
         emit(`S${rpm} M03 M08`);
         const feed = `F${n(row.feed)}`;
         if ("shapes" in u && u.kind !== "RGH CBOR") {
-          // Spot only shallowly; the following drill/tap/reamer uses the feature's full depth.
-          const depth =
-            row.kind === "centerDrill"
-              ? Math.min(u.depth, row.depthPass)
-              : u.depth;
-          for (const p of points) {
-            emit(`G0 ${xy(p)}`);
+          const depth = positive(pointDepth(u, row));
+          if (
+            row.kind === "centerDrill" &&
+            (row.diameter < u.diameter + 0.5 || depth * 2 > row.diameter + 1e-6)
+          )
+            fail("diameter");
+          for (const [index, p] of points.entries()) {
             if (row.kind === "reamer") {
+              emit(`G0 ${xy(p)}`);
               emit(`G0 ${z(u.top + 2)}`);
               emit(`G1 ${z(u.top - depth)} ${feed}`);
               emit(`G1 ${z(u.top + 2)} ${feed}`);
@@ -360,12 +368,15 @@ export function expandMazatrol(
                   : row.kind === "drill" && row.depthPass < depth
                     ? 83
                     : 81;
-              emit(
-                `G98 G${code} ${xy(p)} ${z(u.top - depth)} R${n(u.top + 2 + wpc.z)} ${code === 83 ? `Q${n(row.depthPass)} ` : ""}${feed}`,
-              );
-              emit("G80");
+              // One modal cycle declaration per tool; XY-only blocks repeat it until G80.
+              if (index === 0)
+                emit(
+                  `G98 G${code} ${xy(p)} ${z(u.top - depth)} R${n(u.top + 2 + wpc.z)} ${code === 83 ? `Q${n(row.depthPass)} ` : ""}${feed}`,
+                );
+              else emit(xy(p));
             }
           }
+          if (row.kind !== "reamer") emit("G80");
         } else {
           const passes = Math.ceil(u.depth / row.depthPass);
           if (passes > 100) fail("limit");
@@ -425,7 +436,25 @@ export function expandMazatrol(
               );
               if (rows > 500) fail("limit");
               emit(`G0 ${xy({ x: x0, y: y0 })}`);
-              emit(`G1 ${z(bottom)} ${feed}`);
+              if (pocket && u.entry !== "plunge") {
+                // Approach the previous floor, then zig-zag down at no more than 3°.
+                const previousFloor =
+                  u.top - Math.min(u.depth, (pass - 1) * row.depthPass);
+                emit(`G1 ${z(previousFloor)} F${n(row.feed * 0.3)}`);
+                const rampLegs = Math.max(
+                  1,
+                  Math.ceil(
+                    (previousFloor - bottom) /
+                      ((x1 - x0) * Math.tan(Math.PI / 60)),
+                  ),
+                );
+                if (rampLegs > 500) fail("limit");
+                for (let leg = 1; leg <= rampLegs; leg++) {
+                  emit(
+                    `G1 ${xy({ x: leg % 2 ? x1 : x0, y: y0 })} ${z(previousFloor + ((bottom - previousFloor) * leg) / rampLegs)} ${feed}`,
+                  );
+                }
+              } else emit(`G1 ${z(bottom)} F${n(row.feed * 0.3)}`);
               for (let i = 0; i <= rows; i++) {
                 const y = y0 + ((y1 - y0) * i) / rows;
                 emit(`G1 ${xy({ x: i % 2 ? x1 : x0, y })} ${feed}`);

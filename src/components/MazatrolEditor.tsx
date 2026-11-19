@@ -16,6 +16,7 @@ import {
   newUnit,
   shapeKinds,
   unitKinds,
+  pointDepth,
 } from "../nc/mazatrol/model";
 import type { Expansion } from "../nc/mazatrol/expand";
 import { Term } from "./Term";
@@ -50,6 +51,7 @@ const fieldTerms: Record<string, TermId> = {
   pitch: "threadPitch",
   pocket: "toolLength",
   depthPass: "depthPass",
+  toolDepth: "cutDepth",
   speed: "cuttingSpeed",
   feed: "feed",
 };
@@ -206,6 +208,7 @@ export function MazatrolEditor({
               <select
                 disabled={disabled}
                 value={unit.material}
+                aria-label={t.maz.material}
                 onChange={(e) => change("material", e.target.value)}
               >
                 {["A5052", "S45C", "SUS304", "SS400"].map((m) => (
@@ -255,6 +258,20 @@ export function MazatrolEditor({
                   ["width", "height"].includes(k) ? 0.001 : -10000,
                 ),
               )}
+            {unit.kind === "POCKET" && (
+              <label>
+                <Term id="pocketEntry" label={t.maz.entry} />
+                <select
+                  disabled={disabled}
+                  value={unit.entry ?? "ramp"}
+                  aria-label={t.maz.entry}
+                  onChange={(e) => change("entry", e.target.value)}
+                >
+                  <option value="ramp">{t.maz.ramp}</option>
+                  <option value="plunge">{t.maz.plunge}</option>
+                </select>
+              </label>
+            )}
             {unit.kind === "LINE OUT" && (
               <>
                 {field("startX", unit.start.x, (n) =>
@@ -418,6 +435,7 @@ export function MazatrolEditor({
             <Term id="autoTools" label={t.maz.auto} />
           </h4>
           <p className="hint">{t.maz.toolHint}</p>
+          {"shapes" in unit && <p className="hint"><Term id="spotDrill" /> · {t.maz.holeHint}</p>}
           <button
             disabled={disabled}
             onClick={() => change("tools", autoTools(unit, material, tools))}
@@ -458,6 +476,11 @@ export function MazatrolEditor({
                     ),
                   )}
                   <th>{t.maz.removeRow}</th>
+                  {"shapes" in unit && (
+                    <th>
+                      <Term id="cutDepth" label={t.maz.fields.toolDepth} />
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -518,6 +541,18 @@ export function MazatrolEditor({
                           {t.maz.removeRow}
                         </button>
                       </td>
+                      {"shapes" in unit && (
+                        <td>
+                          <NumberField
+                            label={`${t.maz.fields.toolDepth} ${i + 1}`}
+                            disabled={disabled}
+                            value={pointDepth(unit, row)}
+                            min={0.001}
+                            max={10000}
+                            commit={(n) => update("depth", n)}
+                          />
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

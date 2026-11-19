@@ -85,6 +85,7 @@ M30
 
 export const en = {
   maz: {
+  entry: 'Pocket entry', ramp: 'Zig-zag ramp (3° maximum)', plunge: 'Plunge (30% feed)',
   unitNames: { COMMON: 'COMMON', WPC: 'WPC', DRILLING: 'DRILLING', 'RGH CBOR': 'RGH CBOR', TAPPING: 'TAPPING', REAMING: 'REAMING', 'FACE MILL': 'FACE MILL', POCKET: 'POCKET', 'LINE OUT': 'LINE OUT', END: 'END' },
   shapeNames: { PT: 'PT', LIN: 'LIN', SQR: 'SQR', GRD: 'GRD', CIR: 'CIR', LINE: 'LINE', ARC: 'ARC' },
   "library": "Program list / Create program",
@@ -118,6 +119,7 @@ export const en = {
   "lineHint": "Closed convex outline only. LINE corners use miters; ARC joins must be tangent. Enter the part boundary; the tool centre is offset outside it.",
   "auto": "Automatic tool sequence / 自動工具展開",
   "toolHint": "Practice starting values only. Regenerate after material/dimension changes; this replaces the tool rows. Rows remain editable. T/H, type and diameter must match TOOL DATA. Tapping FR must equal rounded rpm × pitch.",
+  holeHint: '90° spot diameter = hole diameter + 0.5 mm. Blind pilot depth = finish depth + 0.3 × finish diameter + 0.3 × drill diameter; no allowance for through holes (depth ≥ 20 mm). Total depths are editable; regenerate to restore calculated values. The default Ø10 spot tool requires Reset to default setup for older saved setups.',
   "regenerate": "Generate tool sequence",
   "addTool": "Add tool row",
   "viewCode": "View as G-code",
@@ -125,6 +127,7 @@ export const en = {
   "shapeCheck": "Unit shapes · XY",
   "shapeHint": "Part boundaries and hole patterns after WPC transformation, before tool-radius offsets or execution.",
   "fields": {
+    toolDepth: 'Total tool depth (mm)',
     "x": "X (mm)",
     "y": "Y (mm)",
     "z": "Z (mm)",
@@ -360,6 +363,7 @@ export const en = {
   glossary: 'NC glossary',
   glossaryHint: 'Hover, focus or tap an underlined term to see its reading and meaning. Press Escape to close.',
   alarms: {
+    pilotDepth: 'The tap/reamer needs a deeper pilot hole at the same XY. Blind finishing depth must be less than the drilled depth; through holes may reach the stock bottom together.',
     unitParameters: "Invalid conversational unit. Check the PROGRAM screen.",
     spindleStopped: "Spindle is stopped while cutting material. Command M03/M04 and positive S.",
     rapidStock: "Rapid motion enters remaining stock. Retract first and use cutting feed.",

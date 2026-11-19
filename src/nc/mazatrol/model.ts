@@ -1,4 +1,5 @@
 import type { CuttingTool, ToolKind } from "../stock";
+import { stockBox } from "../stock";
 export type Material = "A5052" | "S45C" | "SUS304" | "SS400";
 export type PointKind = "DRILLING" | "RGH CBOR" | "TAPPING" | "REAMING";
 export interface XY {
@@ -21,6 +22,8 @@ export interface ToolRow {
   depthPass: number;
   speed: number;
   feed: number;
+  /** Optional total depth override for point machining; otherwise derived from the feature. */
+  depth?: number;
 }
 interface Base {
   id: string;
@@ -46,6 +49,7 @@ export type Unit =
       y: number;
       width: number;
       height: number;
+      entry?: "ramp" | "plunge";
     })
   | (Cut & { kind: "LINE OUT"; start: XY; edges: Edge[] })
   | (Base & { kind: "END" });
@@ -115,6 +119,23 @@ export function blankMazatrol(): MazatrolProgram {
     ],
   };
 }
+/** 90° spotting: radius / tan(45°) gives a hole diameter + 0.5 mm chamfer. */
+export function pointDepth(
+  unit: Extract<CuttingUnit, { shapes: Shape[] }>,
+  row: ToolRow,
+): number {
+  if (row.depth !== undefined) return row.depth;
+  if (row.kind === "centerDrill") return (unit.diameter + 0.5) / 2;
+  if (
+    row.kind === "drill" &&
+    (unit.kind === "TAPPING" || unit.kind === "REAMING") &&
+    unit.depth < stockBox.max.z - stockBox.min.z
+  ) {
+    // Match generated coordinate precision and avoid floating-point tails in the editor.
+    return Number((unit.depth + 0.3 * unit.diameter + 0.3 * row.diameter).toFixed(4));
+  }
+  return unit.depth;
+}
 /** Starting values for practice, not validated machining recommendations. FR is mm/min. */
 export function autoTools(
   unit: CuttingUnit,
@@ -122,10 +143,19 @@ export function autoTools(
   tools: CuttingTool[],
 ): ToolRow[] {
   const factor = { A5052: 1, S45C: 0.45, SUS304: 0.25, SS400: 0.5 }[material];
+  // The tool body must be large enough to produce the requested 90° chamfer.
+  const spotDiameter = "diameter" in unit ? unit.diameter + 0.5 : 0;
+  const spotTool = tools
+    .filter((t) => t.kind === "centerDrill" && t.actual >= spotDiameter)
+    .sort((a, b) => a.actual - b.actual)[0];
+  const spot: [ToolKind, number] = [
+    "centerDrill",
+    spotTool?.actual ?? spotDiameter,
+  ];
   const specs: [ToolKind, number][] =
     unit.kind === "TAPPING"
       ? [
-          ["centerDrill", 4],
+          spot,
           [
             "drill",
             unit.diameter === 8 && unit.pitch === 1.25
@@ -135,16 +165,9 @@ export function autoTools(
           ["tap", unit.diameter],
         ]
       : unit.kind === "DRILLING"
-        ? [
-            ["centerDrill", 4],
-            ["drill", unit.diameter],
-          ]
+        ? [spot, ["drill", unit.diameter]]
         : unit.kind === "REAMING"
-          ? [
-              ["centerDrill", 4],
-              ["drill", unit.diameter - 0.2],
-              ["reamer", unit.diameter],
-            ]
+          ? [spot, ["drill", unit.diameter - 0.2], ["reamer", unit.diameter]]
           : unit.kind === "FACE MILL"
             ? [["faceMill", 50]]
             : [["endMill", 6]];

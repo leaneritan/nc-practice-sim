@@ -13,7 +13,7 @@ export function defaultOffsets(): Record<WorkSystem, Vec3> {
 export function defaultTools(): ToolData[] {
   const presets: [ToolKind, number, number][] = [
     ['endMill', 6, 120], ['drill', 6.8, 160], ['tap', 8, 150], ['faceMill', 50, 100],
-    ['ballMill', 6, 130], ['centerDrill', 4, 110], ['reamer', 8, 180], ['chamfer', 10, 110],
+    ['ballMill', 6, 130], ['centerDrill', 10, 110], ['reamer', 8, 180], ['chamfer', 10, 110],
   ];
   return Array.from({ length: 20 }, (_, index) => {
     const [kind, diameter, length] = presets[index % presets.length]!;

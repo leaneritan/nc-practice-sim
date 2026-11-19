@@ -54,6 +54,8 @@ export function validMazatrol(value: unknown): value is MazatrolProgram {
       !u.tools.every(
         (r) =>
           r &&
+          (r.depth === undefined ||
+            (typeof r.depth === "number" && Number.isFinite(r.depth))) &&
           matches(r, {
             kind: "",
             pocket: 0,
@@ -63,6 +65,12 @@ export function validMazatrol(value: unknown): value is MazatrolProgram {
             feed: 0,
           }),
       )
+    )
+      return false;
+    if (
+      u.kind === "POCKET" &&
+      u.entry !== undefined &&
+      !["ramp", "plunge"].includes(u.entry)
     )
       return false;
     if ("shapes" in u)

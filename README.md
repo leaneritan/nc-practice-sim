@@ -19,6 +19,7 @@ npm run preview         # Serve the production build
 
 - In **EDIT → PROGRAM**, open **Program list / Create program**. Enter a name and choose **Mazatrol** or **EIA/ISO (G-code)**, then Create program. The original EIA program remains available in the list.
 - For the conversational example, first use **Reset to default setup**, then **Load Mazatrol sample**. It faces 1 mm, drills/taps four M8 holes, and mills a 40×20 pocket to stock Z−5. Click a unit to edit its forms, shape rows or tool sequence. **Generate tool sequence** replaces that unit's rows with practice starting values; subsequent edits are retained. TOOL DATA must match the selected tools.
+- Hole rows show editable total depths. Blind tapping/reaming pilots include bottom clearance and drill-point allowance; the shared alarm rejects a finishing depth at or below its pilot bottom. The default Ø10, 90° spot tool makes a chamfer 0.5 mm wider than the hole. Reload the sample after resetting older saved setups. Pocket entry defaults to a ≤3° zig-zag ramp; **Plunge** uses 30% feed.
 - Open **View as G-code** to compare the equivalent program. **SHAPE CHECK** draws the unit shapes immediately; **Run** calculates the same stock removal and alarms as MEMORY. WPC is a translation/rotation relative to G54. SINGLE BLOCK stops on each generated block, with its unit shown on POSITION.
 - For EIA/ISO, load a sample or enter G-code. Select **MEMORY → CYCLE START** to run. Try **FEED HOLD**, resume with CYCLE START, or enable **SINGLE BLOCK**. M00 always stops; M01 stops with OPTIONAL STOP enabled. RESET clears the run without moving the machine or restoring removed material.
 - **POSITION** shows work/machine/remaining coordinates and live paths. **SHAPE CHECK → Run** calculates an instant preview without moving the machine; RESET clears an executed trace to enable a new preview.
@@ -62,6 +63,7 @@ npm run preview         # 本番用ビルドの確認
 
 - **EDIT → PROGRAM**で**プログラム一覧・新規作成**を開き、名前と**Mazatrol／EIA/ISO (G-code)**を選んで作成します。元のEIAプログラムも一覧に残ります。
 - 対話式の例は**段取りを初期値に戻す**→**Mazatrolサンプルを読み込む**で開始します。上面を1 mm削り、M8タップ4穴、40×20のポケットを素材Z−5まで加工します。ユニットを選ぶと項目・形状行・工具行を編集できます。**工具を自動展開**は選択ユニットの行を練習用初期値で置換し、その後は手動編集できます。TOOL DATAと工具を一致させてください。
+- 工具行で総深さを編集できます。止まりタップ・リーマの下穴には底部余裕とドリル先端長を追加し、下穴底以上の仕上げ深さは共通アラームで停止します。標準の径10・90°スポット工具で穴径＋0.5 mmの面取りを作ります。古い段取りは初期化後にサンプルを再読込みしてください。ポケットは最大3°の往復ランプ進入が初期値で、突込み選択時は送り30%です。
 - **Gコードで表示**で等価な指令を比較できます。**SHAPE CHECK**は実行前の形状を表示し、**実行**でMEMORYと共通の除去・警告を計算します。WPCはG54に対する移動・回転です。SINGLE BLOCKは生成ブロックごとに停止し、POSITIONに元のユニットを表示します。
 - EIA/ISOではサンプルを読み込むかGコードを入力し、**MEMORY → CYCLE START**で実行します。**FEED HOLD**で一時停止、CYCLE STARTで再開し、**SINGLE BLOCK**では1ブロックずつ進めます。M00は必ず停止し、M01はOPTIONAL STOP有効時に停止します。RESETは機械を動かさず実行を解除し、除去形状は保持します。
 - **POSITION**はワーク座標・機械座標・残移動量と動作経路を表示します。**SHAPE CHECK → 実行**は機械を動かさない即時計算です。実行済み経路はRESETで消去してから新しく確認できます。

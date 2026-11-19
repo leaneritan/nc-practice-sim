@@ -1,5 +1,5 @@
 import type { Alarm, MotionSegment, Vec3 } from './types';
-import { createStock, cutAt, pathLength, physicalTip, pointAt, stockBox, visitFootprint, viseBoxes } from './stock';
+import { createStock, cutAt, pathLength, physicalTip, pointAt, recordDrilling, stockBox, visitFootprint, viseBoxes } from './stock';
 import type { Box, CuttingTool, Heightmap } from './stock';
 
 export interface SafetySetup {
@@ -31,7 +31,7 @@ function overlaps(tip: Vec3, radius: number, box: Box): boolean {
  * The stock copy evolves between pecks, so rapid re-entry into a cleared hole is allowed.
  */
 export function inspectMotions(segments: MotionSegment[], setup: SafetySetup, stock = createStock()): { stock: Heightmap; alarms: Alarm[] } {
-  const next = { ...stock, heights: stock.heights.slice() };
+  let next: Heightmap = { ...stock, heights: stock.heights.slice() };
   let changed = false;
   let budget = 2_000_000;
   for (const segment of segments) {
@@ -47,6 +47,16 @@ export function inspectMotions(segments: MotionSegment[], setup: SafetySetup, st
     }
     const tool = setup.tools.find(t => t.pocket === segment.tool);
     if (segment.tool !== null && !tool) return alarm('toolMissing', `T${segment.tool}`);
+    if (tool && (tool.kind === 'tap' || tool.kind === 'reamer') && segment.kind !== 'rapid' && segment.to.z < segment.from.z) {
+      const tip = physicalTip(segment.to, setup.stockOrigin, tool);
+      if (overlaps(tip, tool.actual / 2, stockBox) && tip.z < stockBox.max.z && tip.z >= stockBox.min.z - 1e-6) {
+        // Use physical XY, not a heightmap cell or the currently selected work offset.
+        const pilots = (next.drilledHoles ?? []).filter(h => Math.hypot(h.x - tip.x, h.y - tip.y) < 1e-4 && h.diameter < tool.actual);
+        const bottom = Math.min(...pilots.map(h => h.bottom));
+        const through = bottom <= stockBox.min.z + 1e-6 && tip.z <= stockBox.min.z + 1e-6;
+        if (!pilots.length || (!through && tip.z <= bottom + 1e-6)) return alarm('pilotDepth', `T${tool.pocket} X${tip.x.toFixed(4)} Y${tip.y.toFixed(4)}`);
+      }
+    }
     const steps = Math.max(1, Math.ceil(pathLength(segment) / .5));
     if (steps > budget) return alarm('limit', 'simulation');
     budget -= steps;
@@ -74,6 +84,7 @@ export function inspectMotions(segments: MotionSegment[], setup: SafetySetup, st
       if (setup.pocketWidth > 0 && tool.actual > setup.pocketWidth) return alarm('pocketDiameter', `${tool.actual} > ${setup.pocketWidth}`);
       changed = cutAt(next, tool, tip) || changed;
     }
+    next = recordDrilling(next, segment, tool, setup.stockOrigin);
   }
-  return { stock: changed ? { ...next, revision: stock.revision + 1 } : stock, alarms: [] };
+  return { stock: changed ? { ...next, revision: stock.revision + 1 } : next.drilledHoles !== stock.drilledHoles ? { ...stock, drilledHoles: next.drilledHoles } : stock, alarms: [] };
 }

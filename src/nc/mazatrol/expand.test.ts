@@ -102,7 +102,7 @@ describe("automatic tool sequence", () => {
   it("M8 expands to center drill, 6.8 drill and M8 tap with pitch-correct feed", () => {
     const u = prepared("TAPPING");
     expect(u.tools.map((r) => [r.kind, r.diameter, r.pocket])).toEqual([
-      ["centerDrill", 4, 6],
+      ["centerDrill", 10, 6],
       ["drill", 6.8, 2],
       ["tap", 8, 3],
     ]);
@@ -142,7 +142,7 @@ describe("equivalent EIA and shared simulation", () => {
     expect(result.warnings).toEqual([]);
     expect(result.state.ended).toBe(true);
     expect(result.stock!.heights[30 * 101 + 50]).toBe(-5);
-    expect(result.stock!.heights[15 * 101 + 15]).toBe(-11);
+    expect(result.stock!.heights[15 * 101 + 15]).toBeCloseTo(-15.44, 4);
     expect(result.stock!.heights[10 * 101 + 50]).toBe(-1);
     expect(removedVolume(result.stock!)).toBeGreaterThan(6000);
     expect(result.events.filter((e) => e.kind === "toolChange")).toHaveLength(

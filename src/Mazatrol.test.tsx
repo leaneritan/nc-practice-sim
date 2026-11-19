@@ -32,6 +32,37 @@ async function sample() {
   return user;
 }
 describe("conversational program workflow", () => {
+  it("edits total hole depths, displays the shared pilot alarm, and persists pocket entry", async () => {
+    const user = await sample();
+    await user.click(button("4 · TAPPING"));
+    const pilot = screen.getByRole("spinbutton", {
+      name: `${en.maz.fields.toolDepth} 2`,
+    });
+    expect(
+      screen.getByRole("spinbutton", { name: `${en.maz.fields.toolDepth} 1` }),
+    ).toHaveValue(4.25);
+    expect(pilot).toHaveValue(14.44);
+    fireEvent.change(pilot, { target: { value: "10" } });
+    fireEvent.blur(pilot);
+    await user.click(tab("SHAPE CHECK"));
+    await user.click(button(en.run));
+    expect(screen.getByRole("alert")).toHaveTextContent(en.alarms.pilotDepth);
+    expect(screen.getByRole("alert")).toHaveTextContent("4 · TAPPING");
+    await user.click(tab("PROGRAM"));
+    await user.click(button("4 · TAPPING"));
+    await user.click(button(en.maz.regenerate));
+    expect(
+      screen.getByRole("spinbutton", { name: `${en.maz.fields.toolDepth} 2` }),
+    ).toHaveValue(14.44);
+    await user.click(button("5 · POCKET"));
+    const entry = screen.getByRole("combobox", { name: en.maz.entry });
+    expect(entry).toHaveValue("ramp");
+    await user.selectOptions(entry, "plunge");
+    await act(() => usePrograms.persist.rehydrate());
+    expect(screen.getByRole("combobox", { name: en.maz.entry })).toHaveValue(
+      "plunge",
+    );
+  });
   it("creates both formats, selects programs, and keeps the original EIA text", async () => {
     const user = userEvent.setup();
     render(<App />);

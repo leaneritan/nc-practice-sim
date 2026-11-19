@@ -56,6 +56,8 @@ export const glossary = [
   {"id":"depthPass","ja":"一回の切込み","kana":"いっかいのきりこみ","romaji":"ikkai no kirikomi","en":"Depth per pass","meaningEn":"Maximum depth increment per milling layer or drill peck.","meaningJa":"フライス加工の一層、または深穴あけの一回あたりの最大切込みです。"},
   {"id":"cuttingSpeed","ja":"切削速度","kana":"せっさくそくど","romaji":"sessaku sokudo","en":"Cutting speed","meaningEn":"C-SP is tool-edge speed in m/min; rpm = 1000 × C-SP / (π × diameter).","meaningJa":"C-SPは刃先の速さ（m/min）です。回転数＝1000×C-SP÷（π×直径）で求めます。"},
   {"id":"material","ja":"材質","kana":"ざいしつ","romaji":"zaishitsu","en":"Material","meaningEn":"The workpiece alloy; used to suggest practice cutting speeds and feeds.","meaningJa":"加工物の材料の種類です。練習用の切削速度・送りの初期値に使います。"},
+  { id: 'pocketEntry', ja: 'ポケット進入', kana: 'ぽけっとしんにゅう', romaji: 'poketto shinnyū', en: 'Pocket entry', meaningEn: 'Ramp down while moving sideways; the optional straight plunge uses 30% of cutting feed.', meaningJa: '横に移動しながら斜めに切り込みます。垂直に突っ込む場合は切削送りの30%を使います。' },
+  { id: 'spotDrill', ja: 'スポットドリル', kana: 'すぽっとどりる', romaji: 'supotto doriru', en: '90° spot drill', meaningEn: 'A conical tool for starting holes and chamfering. At 90°, spot diameter is twice the tip depth below the surface.', meaningJa: '穴の位置決めと面取りに使う円すい状の工具です。先端角90°では、スポット径は上面からの先端深さの2倍です。' },
 ] as const satisfies readonly GlossaryEntry[];
 
 export type TermId = typeof glossary[number]['id'];

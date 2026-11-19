@@ -3,6 +3,7 @@ import type { Messages } from './en';
 
 export const ja: Messages = {
   maz: {
+  entry: 'ポケット進入', ramp: '往復ランプ進入（最大3°）', plunge: '突込み（送り30%）',
   unitNames: { COMMON: 'COMMON', WPC: 'WPC', DRILLING: 'DRILLING', 'RGH CBOR': 'RGH CBOR', TAPPING: 'TAPPING', REAMING: 'REAMING', 'FACE MILL': 'FACE MILL', POCKET: 'POCKET', 'LINE OUT': 'LINE OUT', END: 'END' },
   shapeNames: { PT: 'PT', LIN: 'LIN', SQR: 'SQR', GRD: 'GRD', CIR: 'CIR', LINE: 'LINE', ARC: 'ARC' },
   "library": "プログラム一覧・新規作成",
@@ -36,6 +37,7 @@ export const ja: Messages = {
   "lineHint": "閉じた凸輪郭に対応します。LINEの角は交点で接続し、ARCは接線で接続してください。製品輪郭を入力すると工具中心を外側へ補正します。",
   "auto": "自動工具展開",
   "toolHint": "練習用の初期値です。材質・寸法変更後は再展開してください（工具行を置換します）。各行は編集可能です。T/H・種類・実径をTOOL DATAと一致させます。タップFR＝丸めた回転数×ピッチです。",
+  holeHint: '90°スポット径＝穴径＋0.5 mm。止まり穴の下穴深さ＝仕上げ深さ＋0.3×仕上げ径＋0.3×ドリル径です。貫通穴（深さ20 mm以上）には追加しません。総深さは編集でき、再展開で計算値に戻ります。以前の保存済み段取りでは、初期値に戻して標準の径10スポット工具を読み込んでください。',
   "regenerate": "工具を自動展開",
   "addTool": "工具行追加",
   "viewCode": "Gコードで表示",
@@ -43,6 +45,7 @@ export const ja: Messages = {
   "shapeCheck": "ユニット形状・XY",
   "shapeHint": "WPC変換後の製品輪郭・穴配置です。工具径補正・実行前の形状を表示します。",
   "fields": {
+    toolDepth: '工具の総深さ（mm）',
     "x": "X (mm)",
     "y": "Y (mm)",
     "z": "Z (mm)",
@@ -278,6 +281,7 @@ export const ja: Messages = {
   glossary: 'NC用語集',
   glossaryHint: '下線付きの用語にカーソルを合わせるか、フォーカス・タップすると読み方と意味が表示されます。Escapeキーで閉じます。',
   alarms: {
+    pilotDepth: '同じXY位置に、タップ・リーマより深い下穴が必要です。止まり穴の仕上げ深さは下穴深さ未満にしてください。貫通穴はともに素材底面へ到達できます。',
     unitParameters: "対話ユニットが不正です。PROGRAM画面を確認してください。",
     spindleStopped: "材料切削中に主軸が停止しています。M03/M04と正のSを指定してください。",
     rapidStock: "早送りが未除去の素材に入ります。退避してから切削送りを使用してください。",
