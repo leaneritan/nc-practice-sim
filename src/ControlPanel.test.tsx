@@ -103,7 +103,7 @@ describe('Phase 3 control panel', () => {
     fireEvent.keyDown(document.body, { key: 'ArrowRight' }); advance(300); fireEvent.keyUp(window, { key: 'ArrowRight' });
     const x = position('machine'); expect(x).toBeGreaterThan(0); advance(500); expect(position('machine')).toBe(x);
     await u.click(tab('PROGRAM'));
-    const input = screen.getByRole('textbox'); fireEvent.keyDown(input, { key: 'ArrowRight' }); advance(300);
+    const input = screen.getByRole('textbox', { name: en.programLabel }); fireEvent.keyDown(input, { key: 'ArrowRight' }); advance(300);
     await u.click(tab('POSITION')); expect(position('machine')).toBe(x);
   });
   it('routes parser alarms to ALARM and RESET clears them', async () => {

@@ -98,9 +98,10 @@ describe('Phase 1 page', () => {
 });
 
 describe('glossary accessibility and localization', () => {
-  it('contains the original 20 plus two workholding, complete entries and matching translation keys', () => {
-    expect(glossary).toHaveLength(22);
-    expect(new Set(glossary.map(term => term.id)).size).toBe(22);
+  it('retains the original terms and includes complete conversational entries and matching translations', () => {
+    expect(glossary.slice(0, 22).map(term => term.id)).toContain('vise');
+    expect(glossary.map(term => term.id)).toEqual(expect.arrayContaining(['tapping', 'autoTools', 'wpcUnit', 'gridPattern']));
+    expect(new Set(glossary.map(term => term.id)).size).toBe(glossary.length);
     for (const term of glossary) for (const value of Object.values(term)) expect(value.length).toBeGreaterThan(0);
     expect(Object.keys(ja).sort()).toEqual(Object.keys(en).sort());
     expect(Object.keys(ja.alarms).sort()).toEqual(Object.keys(en.alarms).sort());

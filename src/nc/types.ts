@@ -5,7 +5,7 @@ export interface Vec3 { x: number; y: number; z: number }
 export type WorkSystem = 54 | 55 | 56 | 57 | 58 | 59;
 export type MotionMode = 0 | 1 | 2 | 3 | 81 | 82 | 83 | 84 | null;
 export type AlarmCode =
-  | 'syntax' | 'comment' | 'unsupportedWord' | 'unsupportedCode' | 'duplicateWord'
+  | 'unitParameters' | 'syntax' | 'comment' | 'unsupportedWord' | 'unsupportedCode' | 'duplicateWord'
   | 'modalConflict' | 'invalidValue' | 'missingFeed' | 'missingMotion'
   | 'missingOffset' | 'arcDefinition' | 'arcGeometry' | 'cycleParameters'
   | 'spindleStopped' | 'rapidStock' | 'viseCollision' | 'belowStock' | 'lengthRequired'
@@ -89,6 +89,7 @@ export type MotionSegment =
       sweep: number;
     });
 export interface InterpreterOptions {
+  sourceUnits?: Record<number, string>;
   safety?: SafetySetup;
   initialStock?: Heightmap;
   initialPosition?: Vec3;

@@ -1,3 +1,8 @@
+import { usePrograms } from './programs';
+import { expandMazatrol } from './nc/mazatrol/expand';
+import { ProgramLibrary } from './components/ProgramLibrary';
+import { MazatrolEditor } from './components/MazatrolEditor';
+import { UnitShapes } from './components/UnitShapes';
 import { StockView } from './components/StockView';
 import { Magazine } from './components/Magazine';
 import { machineHome, simulationOptions } from './setup';
@@ -24,6 +29,16 @@ const axes = ['x', 'y', 'z'] as const;
 export default function App() {
   const { t, language } = useI18n();
   const store = useAppStore();
+  const library = usePrograms();
+  const programDocument = library.documents.find(d => d.id === library.activeId);
+  const expansion = useMemo(() => programDocument?.kind === 'mazatrol' ? expandMazatrol(programDocument.data, store.tools) : null, [programDocument, store.tools]);
+  const unitLabels = useMemo(() => expansion && programDocument?.kind === 'mazatrol' ? Object.fromEntries(Object.entries(expansion.lineUnits).map(([line,id]) => {
+    const index = programDocument.data.units.findIndex(unit => unit.id === id);
+    const kind = programDocument.data.units[index]?.kind;
+    return [line, `${index + 1} · ${kind ? t.maz.unitNames[kind] : id}`];
+  })) : undefined, [expansion, programDocument, t.maz.unitNames]);
+  const memorySource = programDocument?.kind === 'mazatrol' ? expansion!.source : programDocument?.kind === 'eia' ? programDocument.source : store.program;
+  const updateSource = (source: string) => programDocument?.kind === 'eia' ? library.update({ ...programDocument, source }) : store.setProgram(source);
   const [machine, setMachine] = useState(() => setControls(createMachine(machineHome), { optionalStop: store.optionalStop }));
   const [screen, setScreen] = useState<Screen>('PROGRAM');
   const [mdi, setMdi] = useState('');
@@ -32,13 +47,13 @@ export default function App() {
   const [sample, setSample] = useState<keyof typeof t.samples>('contour');
   const busy = locked(machine);
   const options = useMemo<InterpreterOptions>(() => ({ ...simulationOptions(store.workOffsets, store.tools, store.pocketWidth),
-    strictDecimals: store.strictDecimals, optionalStop: store.optionalStop,
-  }), [store.workOffsets, store.tools, store.pocketWidth, store.strictDecimals, store.optionalStop]);
+    strictDecimals: store.strictDecimals, optionalStop: store.optionalStop, sourceUnits: unitLabels,
+  }), [store.workOffsets, store.tools, store.pocketWidth, store.strictDecimals, store.optionalStop, unitLabels]);
   const activeOptions = machine.session?.options ?? options;
   const shift = activeWorkShift(machine.state, activeOptions);
   const work = machineToWork(machine.state.position, shift);
   const trace = useMemo(() => visibleSegments(machine), [machine]);
-  const source = machine.mode === 'MDI' ? mdi : store.program;
+  const source = machine.mode === 'MDI' ? mdi : memorySource;
   const warnings = useMemo(() => parseProgram(source, { strictDecimals: store.strictDecimals }).warnings, [source, store.strictDecimals]);
   const number = (value: number) => (Math.abs(value) < .0000001 ? 0 : value).toFixed(3);
   const segment = currentSegment(machine);
@@ -103,7 +118,7 @@ export default function App() {
       <div className="display-unit">
         <div className="machine-status" role="status" aria-label={t.panel.statusLabel}>
           <strong>{t.panel.modes[machine.mode]} · {t.panel.status[machine.status]}</strong>
-          <span>{t.panel.programNo} {machine.programNumber ?? t.dash} · {t.panel.block} {machine.line || t.dash}</span>
+          <span>{activeOptions.sourceUnits?.[machine.line] && <>{t.maz.unit} {activeOptions.sourceUnits[machine.line]} · </>}{t.panel.programNo} {machine.programNumber ?? t.dash} · {t.panel.block} {machine.line || t.dash}</span>
           <span>S {number(actualSpeed)} · F {number(actualFeed)} · T {machine.state.tool ?? t.dash}</span>
           <span>{t.panel.spindle}: {t.panel[machine.state.spindle]} · {t.panel.coolant}: {machine.state.coolant ? t.panel.on : t.panel.off}</span>
         </div>
@@ -121,12 +136,14 @@ export default function App() {
           </section>}
           {screen === 'PROGRAM' && <section>
             <h2>{t.panel.screens.PROGRAM}</h2>
+            {machine.mode !== 'MDI' && <ProgramLibrary disabled={!editable} beforeChange={invalidate} />}
+            {machine.mode !== 'MDI' && programDocument?.kind === 'mazatrol' && expansion ? <MazatrolEditor key={programDocument.id} data={programDocument.data} expansion={expansion} disabled={!editable} onChange={data => { invalidate(); library.update({ ...programDocument, data }); }} /> : <>
             {machine.mode !== 'MDI' && <div className="sample-picker">
               <label htmlFor="sample">{t.selectSample}</label>
               <select id="sample" value={sample} disabled={!editable} onChange={event => setSample(event.target.value as keyof typeof t.samples)}>
                 {Object.entries(t.samples).map(([id, item]) => <option key={id} value={id}>{item.name}</option>)}
               </select>
-              <button className="secondary" disabled={!editable} onClick={() => { invalidate(); store.setProgram(t.samples[sample].program); }}>{t.reset}</button>
+              <button className="secondary" disabled={!editable} onClick={() => { invalidate(); updateSource(t.samples[sample].program); }}>{t.reset}</button>
               <p className="hint">{t.samples[sample].description}</p>
             </div>}
             <label htmlFor="machine-program">{machine.mode === 'MDI' ? t.panel.mdiLabel : t.programLabel}</label>
@@ -137,7 +154,7 @@ export default function App() {
                   setMachine(current => ({ ...current, session: null, status: 'idle', segments: [], events: [], line: 0,
                     state: { ...current.state, ended: false, paused: null } }));
                   setMdi(event.target.value);
-                } else { invalidate(); store.setProgram(event.target.value); }
+                } else { invalidate(); updateSource(event.target.value); }
               }} />
             <p className="hint">{machine.mode === 'MDI' ? t.panel.mdiHint : t.panel.memoryHint}</p>
             {!editable && <p className="hint">{busy ? t.panel.setupLocked : t.panel.editHint}</p>}
@@ -148,20 +165,22 @@ export default function App() {
               <p>{store.strictDecimals ? t.decimalStrict : t.decimalNormal}</p>
               <details><summary>{t.explanation}</summary><ul>{warnings.slice(0, 50).map((warning, index) => <li key={index}>{t.line} {warning.line}: {warning.word} · {t.interpreted} {warning.interpreted} {t.mm}</li>)}</ul></details>
             </aside>}
+            </>}
           </section>}
           {screen === 'SHAPE CHECK' && <section>
             <h2>{t.panel.screens['SHAPE CHECK']} · <Term id="workCoordinate" /></h2>
-            {(busy || machine.session || trace.length > 0) ? <><PathView segments={trace} position={machine.state.position} workShift={shift} />
+            {expansion && <><UnitShapes shapes={expansion.shapes} />{expansion.issues.map((issue,i) => <p className="alarm" role="alert" key={i}>{t.maz.unit} {issue.unit}: {t.maz.errors[issue.code]}</p>)}</>}
+            {expansion?.issues.length ? null : (busy || machine.session || trace.length > 0) ? <><PathView segments={trace} position={machine.state.position} workShift={shift} />
               {stockView}<p className="hint">{t.panel.traceHint}</p>{machine.events.length > 0 && <EventLog events={machine.events} />}
               {!busy && <p className="hint">{t.panel.previewResetHint}</p>}</>
-              : <PracticePreview embedded showEditor={false} modalState={machine.state} initialStock={machine.stock} />}
+              : <PracticePreview embedded showEditor={false} modalState={machine.state} initialStock={machine.stock} programSource={memorySource} sourceUnits={unitLabels} />}
           </section>}
           {screen === 'WORK OFFSET' && <WorkOffsetScreen disabled={busy} active={machine.state.workSystem} beforeEdit={invalidate}
             select={system => setMachine(current => { const reset = resetMachine(current); return { ...reset, state: { ...reset.state, workSystem: system } }; })} />}
           {screen === 'TOOL DATA' && <><ToolDataScreen disabled={busy} beforeEdit={invalidate} />{magazine}</>}
           {screen === 'ALARM' && <section><h2>{t.panel.screens.ALARM}</h2>
             {machine.alarms.length === 0 ? <p>{t.panel.noAlarms}</p> : machine.alarms.map((alarm, index) => <div role="alert" className="alarm" key={index}>
-              <strong>{t.line} {alarm.line} · {alarm.detail}</strong><p>{t.alarms[alarm.code]}</p>
+              <strong>{activeOptions.sourceUnits?.[alarm.line] && <>{t.maz.unit} {activeOptions.sourceUnits[alarm.line]} · </>}{t.line} {alarm.line} · {alarm.detail}</strong><p>{t.alarms[alarm.code]}</p>
             </div>)}<p className="hint">{t.panel.alarmHint}</p>
           </section>}
         </div>
@@ -169,7 +188,7 @@ export default function App() {
           <button role="tab" id={`tab-${id.replaceAll(' ', '-')}`} aria-controls="machine-screen" aria-selected={screen === id} key={id} onClick={() => setScreen(id as Screen)}>{label}</button>)}</nav>
       </div>
       <ControlPanel machine={machine} mode={mode => { setJogInput(null); setMachine(current => setMode(current, mode)); setScreen(['EDIT', 'MDI'].includes(mode) ? 'PROGRAM' : 'POSITION'); }}
-        start={() => { setMachine(current => cycleStart(current, current.mode === 'MDI' ? mdi : store.program, options)); setScreen('POSITION'); }}
+        start={() => { setMachine(current => expansion?.issues.length && current.mode !== 'MDI' ? { ...current, status: 'alarm', alarms: [{ code: 'unitParameters', line: 0, detail: expansion.issues[0]!.unit }] } : cycleStart(current, current.mode === 'MDI' ? mdi : memorySource, current.mode === 'MDI' ? { ...options, sourceUnits: undefined } : options)); setScreen('POSITION'); }}
         hold={() => { setJogInput(null); setMachine(feedHold); }} reset={() => { setJogInput(null); setMachine(resetMachine); }}
         controls={changes => setMachine(current => setControls(current, changes))} coolant={() => setMachine(setCoolant)} handle={handle} setHandle={setHandle}
         optional={enabled => { store.setOptionalStop(enabled); setMachine(current => setControls(current, { optionalStop: enabled })); }}

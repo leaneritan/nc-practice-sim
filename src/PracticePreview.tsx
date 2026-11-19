@@ -13,14 +13,15 @@ import { parseProgram, resumeProgram, runProgram } from './nc';
 import type { RunResult, Vec3 } from './nc';
 import { useAppStore } from './store';
 
-export default function PracticePreview({ embedded = false, showEditor = true, modalState, initialStock }: { embedded?: boolean; showEditor?: boolean; modalState?: ModalState; initialStock?: Heightmap }) {
+export default function PracticePreview({ embedded = false, showEditor = true, modalState, initialStock, programSource, sourceUnits }: { embedded?: boolean; showEditor?: boolean; modalState?: ModalState; initialStock?: Heightmap; programSource?: string; sourceUnits?: Record<number,string> }) {
   const { t, language } = useI18n();
-  const { program, setProgram, setLanguage, strictDecimals, optionalStop, setStrictDecimals, setOptionalStop, workOffsets, tools, pocketWidth } = useAppStore();
+  const { program: savedProgram, setProgram, setLanguage, strictDecimals, optionalStop, setStrictDecimals, setOptionalStop, workOffsets, tools, pocketWidth } = useAppStore();
+  const program = programSource ?? savedProgram;
   const [result, setResult] = useState<RunResult | null>(null);
   const [executedProgram, setExecutedProgram] = useState('');
   const [executedSettings, setExecutedSettings] = useState('');
   const [sample, setSample] = useState<keyof typeof t.samples>('contour');
-  const options: InterpreterOptions = { ...simulationOptions(workOffsets, tools, pocketWidth), strictDecimals, optionalStop, initialStock,
+  const options: InterpreterOptions = { ...simulationOptions(workOffsets, tools, pocketWidth), strictDecimals, optionalStop, initialStock, sourceUnits,
     ...(modalState ? { initialModalState: { ...modalState, paused: null, ended: false } } : {}) };
   const [resultOptions, setResultOptions] = useState<InterpreterOptions>({});
   const settingsKey = JSON.stringify(options);
@@ -106,7 +107,7 @@ export default function PracticePreview({ embedded = false, showEditor = true, m
           tool={resultOptions.safety?.tools.find(tool => tool.pocket === result.state.tool)} />}
         {result && result.events.length > 0 && <EventLog events={result.events} />}
         {result?.alarms.map((alarm, index) => <div role="alert" className="alarm" key={index}>
-          <strong><Term id="alarm" /> · {t.line} {alarm.line}</strong>
+          <strong>{sourceUnits?.[alarm.line] && <>{t.maz.unit} {sourceUnits[alarm.line]} · </>}<Term id="alarm" /> · {t.line} {alarm.line}</strong>
           <p>{t.alarms[alarm.code]} <code>{alarm.detail}</code></p>
         </div>)}
         {result && result.segments.length === 0 && <p className="empty">{t.empty}</p>}

@@ -1,4 +1,4 @@
-# Phase 4 control and interpreter reference / インタープリター仕様
+# Phase 5 control and interpreter reference / インタープリター仕様
 
 ### Scope and conventions
 
@@ -8,7 +8,7 @@
 - Segments describe the **machine reference point**: absolute machine target = programmed work coordinate + work offset + active tool length (Z only). Changing G54–G59 or G43/G49 without an axis command does not move the machine. Omitted axes keep their machine positions. G91 moves by the specified displacement; I/J always remain relative to the arc start. Positive R selects the minor arc; negative R selects the major arc. Full circles require I/J.
 - G81/G83 retain R/Z and G83 Q across holes; axis words or an explicit cycle call trigger another hole. G98 returns to the initial plane (or R if higher); G99 returns to R. In G91, R is measured from the cycle's initial plane and Z from R. G83 fully retracts to R between pecks, then rapidly returns 0.5 mm above the preceding bottom. Cancel with G80 (or G00–G03) before changing the coordinate system, distance mode or length compensation.
 - The parser limits input to 200,000 characters / 10,000 lines; execution allows at most 20,000 segments. The UI shows 100 segments per page. Numeric magnitudes are limited to 1,000,000.
-- **Not implemented:** Mazatrol unit editing, lessons, JSON import/export, and codes outside the list above (including G41/G42 and G18/G19).
+- **Not implemented:** lessons, JSON import/export, and codes outside the list above (including G41/G42 and G18/G19).
 
 ### 対応範囲と計算規則
 
@@ -18,7 +18,7 @@
 - コアの移動区間は**機械基準点**を保持し、図はワーク座標へ変換します。絶対値の移動先は「指令ワーク座標 + ワーク座標オフセット + 工具長補正（Zのみ）」で計算します。軸指令なしの座標系・補正変更では移動せず、省略した軸の機械位置も変えません。G91は移動量指定です。I/Jは常に円弧始点からの増分、正のRは短い円弧、負のRは長い円弧です。全円にはI/Jが必要です。
 - G81/G83はR/Z、G83はQも保持し、軸指令または明示的なサイクル呼出しで次の穴を加工します。G98は開始時の高さ（R点が高ければR点）、G99はR点へ戻ります。G91ではRは開始時の高さから、ZはR点からの増分です。G83は各切込み後にR点まで戻り、前回の穴底の0.5 mm上まで早送りで再進入します。座標系・指令方式・工具長補正を変更する前にG80（またはG00〜G03）で解除してください。
 - 入力は20万文字・1万行、移動区間は2万件が上限です。画面は100件ずつ表示し、数値の絶対値は100万以下に制限します。
-- **未実装：** Mazatrolユニット編集、レッスン、JSON入出力、上記以外のコード（G41/G42、G18/G19など）。
+- **未実装：** レッスン、JSON入出力、上記以外のコード（G41/G42、G18/G19など）。
 
 
 ## Configuring offsets / オフセットの設定
@@ -85,7 +85,7 @@ console.log(workPosition(result.state, options));
 - **Views:** XY/XZ retains per-motion WORK frames for teaching and alignment. 3D removal and safety use one fixed G54 fixture; G55–G59 do not relocate physical stock. Changing setup is locked during execution and is treated as relocating the same stock when idle. The 3D cutter is an envelope display; removal uses flat, ball, 118° drill and 90° center-drill/chamfer profiles. Tap/reamer use cylindrical envelopes, not thread geometry.
 - **Heightmap:** 101 × 61 nodes at 1 mm spacing; top surface starts at Z0, bottom clamps at −20. Motions (including arcs/helices) are sampled at ≤0.5 mm along the path. Cuts only lower the surface. Live playback removes the traversed fraction; sampling is anchored to the whole segment. A single height per XY cannot represent undercuts, side cavities or threads. Grid-scale features and thin collisions are approximate; sub-grid tools get conservative remaining-stock checks.
 - **Safety:** Geometry checks occur before an entire source block is committed. A rejected multi-peck block removes no material and makes no motion. Checks include exact arc quadrant travel extrema and sampled tool/vise and remaining-stock contact. Remaining stock evolves within accepted peck cycles, permitting cleared-hole rapid re-entry. Cutting contact requires a mounted registered tool, active H, spindle direction/positive S, and positive feed. Feed validation is also enforced on G01/arc/cycle commands in air. Stock-bottom, vise and travel checks apply to manual movement too.
-- **Pocket width:** TOOL DATA accepts an optional minimum intended pocket width. A cutting tool whose **actual** diameter exceeds this width raises `pocketDiameter`; 0 means no pocket constraint. This is explicit setup metadata, not inferred pocket recognition (Mazatrol features remain Phase 5).
+- **Pocket width:** TOOL DATA accepts an optional minimum intended pocket width. A cutting tool whose **actual** diameter exceeds this width raises `pocketDiameter`; 0 means no pocket constraint. This is explicit setup metadata, not inferred pocket recognition (conversational pocket dimensions are additionally checked during expansion).
 - **ATC:** T only selects a pocket. M06 requires the spindle already stopped, Z at the reference, no axis words and no active canned cycle. It emits a 2000 ms tool-change event, mounts the selected tool and cancels H. FEED HOLD pauses that interval; RESET before completion retains the old tool. No hidden retract or XY movement is inserted. Tool pockets are fixed logical IDs; the magazine shows mounted/preselected/exchanging states rather than a physical random-pocket mechanism.
 - **Lifecycle:** RESET and mode changes retain removed stock. Replace stock restores the block; reset-to-default setup also restores offsets/tool data/pocket width, returns the simulated machine home and unloads it. Program/language remain. Browser reload starts a fresh stock/home session; it preserves setup (including older saved values) until explicitly reset. Shape preview uses an independent copy and never changes the live machine/stock.
 - **API:** `simulationOptions` in `src/setup.ts` constructs the physical profile. `runProgram`, `resumeProgram`, `planBlock` and manual/timed execution share safety checks when `options.safety` is present. The low-level interpreter without that profile remains a geometry-only API for earlier-phase callers. Core machine creation now defaults to home Z0; legacy tests explicitly supply their original fixture.
@@ -100,3 +100,32 @@ console.log(workPosition(result.state, options));
 - **工具交換：** Tは次工具選択のみです。M06は主軸停止済み・Z原点・軸指令なし・固定サイクル解除が必要です。2秒の交換後に装着しHを解除します。FEED HOLDで交換時間を停止し、完了前のRESETでは元の工具を保持します。自動退避は挿入しません。固定の論理工具番号を表示し、実機のランダムポケット方式は再現しません。
 - **保持・初期化：** RESET・モード変更では除去形状を保持します。「素材を交換」で新品に戻り、「段取りを初期値に戻す」では設定・形状を戻して仮想機械を原点へ戻し、工具を外します。プログラム・言語は保持します。再読込みで素材・位置は初期化しますが、以前の保存済み段取りは明示的にリセットするまで保持します。形状チェックは独立したコピーを使用します。
 - **未再現：** ホルダー・主軸本体の干渉、原点検出、加減速・サーボ、摩耗、材料物性、ねじ・アンダーカット、機種固有の正確な形状。実機の安全性を確認するツールではありません。
+
+
+## Phase 5 conversational programming
+
+The data model in `src/nc/mazatrol/model.ts` is versioned (`version: 1`) and uses tagged unit/shape records, stable unit IDs and optional `extensions`. It is a learning model, not a file format for a real Mazak control. Programs have one COMMON, one WPC, ordered machining units and END. The separate localStorage library preserves the earlier EIA text and validates saved documents before opening them.
+
+- **COMMON:** A5052, S45C, SUS304 or SS400; initial/clearance Z must be more than 1 mm above every unit's Top Z. Multiple workpieces are off.
+- **WPC:** X/Y/Z translation relative to G54, and θ in degrees counterclockwise about +Z. It transforms unit shapes, motion endpoints and arc centres; it does not alter WORK OFFSET. Existing machine/physical-stock conventions remain unchanged.
+- **Point patterns:** PT is one point; LIN includes its first point and applies signed dx/dy spacing; SQR is four rectangle corners; GRD is an nx×ny grid; CIR distributes `count` points around a circle from the specified start angle. Units can combine multiple rows. Counts must be integers, with at most 500 expanded points per unit.
+- **Tool expansion:** Material and operation select practice C-SP (m/min) and FR (mm/min) values. RPM is rounded from `1000 × C-SP / (π × diameter)`, capped at 12000. TAPPING M8×1.25 suggests center drill Ø4, drill Ø6.8 and tap M8; tap FR must equal rounded RPM × pitch. T/H/type/actual diameter must match TOOL DATA; T0 means no matching tool exists. Regeneration explicitly replaces rows; editing material/dimensions never silently overwrites manual tool edits. Reaming suggests a pilot drill 0.2 mm undersize; configure that tool in TOOL DATA if it is absent.
+- **DRILLING:** center spot then G81 or G83, according to the tool's depth/pass. **TAPPING:** G84 with feed synchronized to the nominal pitch. **REAMING:** feed down and feed out. **RGH CBOR:** flat-end-mill concentric circular clearing in depth layers, with a flat bottom. Depth is a positive distance below Top Z.
+- **FACE MILL:** raster passes across the rectangle, extending beyond its X edges to cover the whole top. **POCKET:** layered rectangular raster with a finishing perimeter; the centreline is inset by tool radius. Internal corners therefore retain that radius. Tool diameter must be smaller than both pocket dimensions. No automatic rest machining, ramping or machining-force model is implied.
+- **LINE OUT:** enter a closed product contour using LINE endpoints or ARC endpoints/absolute centres/CW direction. Expansion offsets the tool centre outward by half the chosen diameter. Convex loops are supported in either orientation, with mitered LINE corners and tangent ARC connections. Open, degenerate, concave, self-intersecting or non-tangent mixed contours are rejected; full circles are supported. This avoids pretending to provide a general cutter-compensation engine.
+- **Shared execution:** Expansion produces decimal-safe EIA plus a generated-line → unit-ID map. MEMORY and SHAPE CHECK use that exact EIA with the existing interpreter, tool changes, heightmap and alarms. SINGLE BLOCK stops after each generated block, including setup/retract blocks; POSITION and ALARM identify the source unit. MDI remains temporary EIA input. Shape drawings show the part/pattern geometry before cutter-radius offsets or simulation.
+- **Validation and bounds:** malformed units, nonfinite values, missing/incompatible tools, bad tapping feed, insufficient clearance and oversized tools prevent execution. Maximum 100 units, 100 pattern rows, 200 contour edges, 10 tool rows, 100 depth passes and 9000 generated lines. Invalid expansion returns no executable source. Geometrically valid but physically unsafe programs still stop through the ordinary simulation alarms.
+- **Sample:** face the 100×60 stock to Z−1, tap M8×1.25 at (15,15), (85,15), (85,45), (15,45) to Z−11, then clear a 40×20 pocket at (30,20) to Z−5. Uses the default face mill T4, centre drill T6, drill T2, tap T3 and end mill T1. Reset setup/replace stock before repeating the complete example.
+
+## フェーズ5の対話プログラミング
+
+`version: 1`のタグ付きユニット・形状データを使用し、安定したIDと拡張用`extensions`を保持します。実機のMazatrolファイル形式ではありません。COMMON、WPC、順番付き加工ユニット、ENDで構成し、元のEIAプログラムを残したまま別のプログラム一覧に保存します。
+
+- COMMONで材質と退避Zを指定します。退避Zは各上面Zより1 mm超高くしてください。多数個取りは切です。WPCはG54からのXYZ移動と+Z軸まわり反時計回りθ（度）で、WORK OFFSETは変更しません。
+- PT＝1点、LIN＝始点を含む等間隔列、SQR＝長方形4隅、GRD＝X/Y個数の格子、CIR＝開始角から円周に等配した点です。複数行を組み合わせ、1ユニット最大500点です。
+- 自動工具展開は材質・加工から練習用C-SP（m/min）・FR（mm/min）を提案します。回転数は1000×C-SP÷(π×径)を丸め、12000で制限します。M8×1.25はセンタドリル4、ドリル6.8、タップ8を提案し、タップFR＝回転数×ピッチが必要です。工具番号・種類・実径をTOOL DATAと一致させます。T0は工具未一致です。再展開は明示操作で行い、材質変更だけでは手動編集を上書きしません。リーマの下穴は0.2 mm小さい径を提案し、未登録なら工具データを設定してください。
+- DRILLINGはG81/G83、TAPPINGはG84、REAMINGは送りで進入・退避、RGH CBORは平底エンドミルで同心円を段階加工します。深さは上面から下向きの正の値です。
+- FACE MILLは長方形を往復走査し、POCKETは工具半径を内側に取った段階走査と周囲仕上げです。隅には工具半径が残ります。LINE OUTは閉じた凸輪郭を外側へ工具半径分補正します。直線角は交点、円弧接続は接線のみです。開いた輪郭・凹形状・交差・不正半径・非接線接続は拒否します。全円にも対応します。
+- 生成EIAを既存のインタープリター・3D・アラームへ渡し、生成行と元ユニットを対応付けます。SINGLE BLOCKは準備・退避を含む生成ブロックごとに停止し、POSITION/ALARMに元ユニットを表示します。MDIはEIA入力のままです。形状表示は補正・実行前の製品輪郭です。
+- サンプルは上面Z−1、4か所のM8タップ穴底Z−11、(30,20)から40×20のポケット底Z−5です。初期工具T4/T6/T2/T3/T1を使用します。再実行前に段取り初期化・素材交換を行ってください。
+- 実機バージョンの完全互換、一般的な凹輪郭補正、加工負荷・ランプ進入・削り残し最適化は未対応です。レッスンとJSON入出力は今後の範囲です。
