@@ -104,10 +104,10 @@ console.log(workPosition(result.state, options));
 
 ## Phase 5 conversational programming
 
-The data model in `src/nc/mazatrol/model.ts` is versioned (`version: 1`) and uses tagged unit/shape records, stable unit IDs and optional `extensions`. It is a learning model, not a file format for a real Mazak control. Programs have one COMMON, one WPC, ordered machining units and END. The separate localStorage library preserves the earlier EIA text and validates saved documents before opening them.
+The data model in `src/nc/mazatrol/model.ts` is versioned (`version: 2`) and uses tagged unit/shape records, stable unit IDs and optional `extensions`. It is a learning model, not a file format for a real Mazak control. Programs have one COMMON, one WPC, ordered machining units and END. The separate localStorage library preserves the earlier EIA text and validates saved documents before opening them.
 
 - **COMMON:** A5052, S45C, SUS304 or SS400; initial/clearance Z must be more than 1 mm above every unit's Top Z. Multiple workpieces are off.
-- **WPC:** X/Y/Z translation relative to G54, and θ in degrees counterclockwise about +Z. It transforms unit shapes, motion endpoints and arc centres; it does not alter WORK OFFSET. Existing machine/physical-stock conventions remain unchanged.
+- **WPC:** X/Y/Z are the work origin in machine coordinates; θ is counterclockwise rotation about +Z. Mazatrol binds an independent WPC frame, never the live G54 table. Generated EIA has rotation baked into XY and a commented G10 L2 P1 showing the equivalent G54 origin. Stock/vise follow WPC, while shapes and path/position views use its local work frame. New/sample WPC is (−500, −250, −400, θ0). Version-1 saved programs migrate once by adding the current G54 to WPC XYZ; rotation, geometry, tools and extensions are retained.
 - **Point patterns:** PT is one point; LIN includes its first point and applies signed dx/dy spacing; SQR is four rectangle corners; GRD is an nx×ny grid; CIR distributes `count` points around a circle from the specified start angle. Units can combine multiple rows. Counts must be integers, with at most 500 expanded points per unit.
 - **Tool expansion:** Material and operation select practice C-SP (m/min) and FR (mm/min) values. RPM is rounded from `1000 × C-SP / (π × diameter)`, capped at 12000. TAPPING M8×1.25 suggests a 90° spot tool (default Ø10), drill Ø6.8 and tap M8; tap FR must equal rounded RPM × pitch. T/H/type/actual diameter must match TOOL DATA; T0 means no matching tool exists. Regeneration explicitly replaces rows; editing material/dimensions never silently overwrites manual tool edits. Reaming suggests a pilot drill 0.2 mm undersize; configure that tool in TOOL DATA if it is absent.
 - **DRILLING:** center spot then G81 or G83, according to the tool's depth/pass. **TAPPING:** G84 with feed synchronized to the nominal pitch. **REAMING:** feed down and feed out. **RGH CBOR:** flat-end-mill concentric circular clearing in depth layers, with a flat bottom. Depth is a positive distance below Top Z.
@@ -121,9 +121,9 @@ The data model in `src/nc/mazatrol/model.ts` is versioned (`version: 1`) and use
 
 ## フェーズ5の対話プログラミング
 
-`version: 1`のタグ付きユニット・形状データを使用し、安定したIDと拡張用`extensions`を保持します。実機のMazatrolファイル形式ではありません。COMMON、WPC、順番付き加工ユニット、ENDで構成し、元のEIAプログラムを残したまま別のプログラム一覧に保存します。
+`version: 2`のタグ付きユニット・形状データを使用し、安定したIDと拡張用`extensions`を保持します。実機のMazatrolファイル形式ではありません。COMMON、WPC、順番付き加工ユニット、ENDで構成し、元のEIAプログラムを残したまま別のプログラム一覧に保存します。
 
-- COMMONで材質と退避Zを指定します。退避Zは各上面Zより1 mm超高くしてください。多数個取りは切です。WPCはG54からのXYZ移動と+Z軸まわり反時計回りθ（度）で、WORK OFFSETは変更しません。
+- COMMONで材質と退避Zを指定します。退避Zは各上面Zより1 mm超高くしてください。多数個取りは切です。WPCのXYZはワーク原点の機械座標、θは+Z軸まわり反時計回りの度数で、G54とは独立します。生成EIAはXYに回転を反映し、等価なG54設定をG10 L2 P1コメントで示します。素材・バイスはWPCに追従し、形状・経路・ワーク位置はWPC座標で表示します。新規・サンプルのWPCは（−500、−250、−400、θ0）。旧version 1は現在のG54をXYZに加えて一度だけ移行し、回転・形状・工具・拡張項目を保持します。
 - PT＝1点、LIN＝始点を含む等間隔列、SQR＝長方形4隅、GRD＝X/Y個数の格子、CIR＝開始角から円周に等配した点です。複数行を組み合わせ、1ユニット最大500点です。
 - 自動工具展開は材質・加工から練習用C-SP（m/min）・FR（mm/min）を提案します。回転数は1000×C-SP÷(π×径)を丸め、12000で制限します。M8×1.25は90°スポット工具（初期径10）、ドリル6.8、タップ8を提案し、タップFR＝回転数×ピッチが必要です。工具番号・種類・実径をTOOL DATAと一致させます。T0は工具未一致です。再展開は明示操作で行い、材質変更だけでは手動編集を上書きしません。リーマの下穴は0.2 mm小さい径を提案し、未登録なら工具データを設定してください。
 - DRILLINGはG81/G83、TAPPINGはG84、REAMINGは送りで進入・退避、RGH CBORは平底エンドミルで同心円を段階加工します。深さは上面から下向きの正の値です。

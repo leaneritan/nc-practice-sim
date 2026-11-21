@@ -1,4 +1,5 @@
 import type { CuttingTool } from "../stock";
+import type { InterpreterOptions, WorkFrame } from "../types";
 import { pointDepth } from "./model";
 import type {
   CuttingUnit,
@@ -18,10 +19,18 @@ export type IssueCode =
   | "clearance"
   | "sequence";
 export interface Expansion {
+  wpc?: WorkFrame;
   source: string;
   lineUnits: Record<number, string>;
   shapes: { unit: string; points: XY[] }[];
   issues: { unit: string; code: IssueCode }[];
+}
+/** Bind the conversational origin and fixture without reading or modifying EIA offsets. */
+export function withMazatrolWpc(options: InterpreterOptions, wpc?: WorkFrame): InterpreterOptions {
+  if (!wpc) return options;
+  return { ...options, wpc: { ...wpc }, ...(options.safety ? {
+    safety: { ...options.safety, stockOrigin: { x: wpc.x, y: wpc.y, z: wpc.z }, stockRotation: wpc.theta },
+  } : {}) };
 }
 class Invalid extends Error {
   constructor(readonly code: IssueCode) {
@@ -193,7 +202,7 @@ export function expandMazatrol(
   let unitId = "";
   try {
     if (
-      program.version !== 1 ||
+      program.version !== 2 ||
       !Array.isArray(program.units) ||
       program.units.length < 3 ||
       program.units.length > 100
@@ -227,11 +236,13 @@ export function expandMazatrol(
           if (k !== "extensions") validate(v);
     };
     validate(units);
-    // WPC is a part-placement transform within G54, not a replacement machine offset.
+    // WPC XYZ is already in machine coordinates. Only rotation is baked into EIA XY;
+    // execution uses this independent origin, and the comparison code documents its G54 equivalent.
+    result.wpc = { x: wpc.x, y: wpc.y, z: wpc.z, theta: wpc.theta };
     const angle = (wpc.theta * Math.PI) / 180;
     const transform = (p: XY): XY => ({
-      x: wpc.x + p.x * Math.cos(angle) - p.y * Math.sin(angle),
-      y: wpc.y + p.x * Math.sin(angle) + p.y * Math.cos(angle),
+      x: p.x * Math.cos(angle) - p.y * Math.sin(angle),
+      y: p.x * Math.sin(angle) + p.y * Math.cos(angle),
     });
     const n = (v: number) => {
       if (!Number.isFinite(v)) fail("value");
@@ -241,7 +252,7 @@ export function expandMazatrol(
       const q = transform(p);
       return `X${n(q.x)} Y${n(q.y)}`;
     };
-    const z = (v: number) => `Z${n(v + wpc.z)}`;
+    const z = (v: number) => `Z${n(v)}`;
     const emit = (line: string) => {
       if (lines.length >= 9000) fail("limit");
       lines.push(line);
@@ -249,6 +260,10 @@ export function expandMazatrol(
     };
     const retract = () => emit(`G0 ${z(common.initialZ)}`);
     unitId = common.id;
+    emit(`(WPC MACHINE ORIGIN: X${n(wpc.x)} Y${n(wpc.y)} Z${n(wpc.z)} THETA ${n(wpc.theta)})`);
+    emit("(EIA COMPARISON ONLY: SET G54 TO THE WPC MACHINE ORIGIN BEFORE RUNNING)");
+    emit(`(G10 L2 P1 X${n(wpc.x)} Y${n(wpc.y)} Z${n(wpc.z)})`);
+    emit("(WPC XY ROTATION IS ALREADY APPLIED BELOW - DO NOT APPLY IT AGAIN)");
     emit("G21 G17 G90 G94 G40 G80");
     emit("M05 M09");
     emit("G91 G28 Z0.");
@@ -276,12 +291,10 @@ export function expandMazatrol(
         for (const p of points)
           result.shapes.push({
             unit: unitId,
-            points: Array.from({ length: 37 }, (_, i) =>
-              transform({
-                x: p.x + (u.diameter / 2) * Math.cos((i * Math.PI) / 18),
-                y: p.y + (u.diameter / 2) * Math.sin((i * Math.PI) / 18),
-              }),
-            ),
+            points: Array.from({ length: 37 }, (_, i) => ({
+              x: p.x + (u.diameter / 2) * Math.cos((i * Math.PI) / 18),
+              y: p.y + (u.diameter / 2) * Math.sin((i * Math.PI) / 18),
+            })),
           });
       } else if (u.kind === "LINE OUT") {
         let from = u.start;
@@ -290,7 +303,7 @@ export function expandMazatrol(
           raw.push(...(e.kind === "ARC" ? arcPoints(from, e).slice(1) : [e]));
           from = e;
         }
-        result.shapes.push({ unit: unitId, points: raw.map(transform) });
+        result.shapes.push({ unit: unitId, points: raw });
       } else {
         positive(u.width);
         positive(u.height);
@@ -302,7 +315,7 @@ export function expandMazatrol(
             { x: u.x + u.width, y: u.y + u.height },
             { x: u.x, y: u.y + u.height },
             { x: u.x, y: u.y },
-          ].map(transform),
+          ],
         });
       }
       if (!u.tools.length || u.tools.length > 10) fail("tool");
@@ -371,7 +384,7 @@ export function expandMazatrol(
               // One modal cycle declaration per tool; XY-only blocks repeat it until G80.
               if (index === 0)
                 emit(
-                  `G98 G${code} ${xy(p)} ${z(u.top - depth)} R${n(u.top + 2 + wpc.z)} ${code === 83 ? `Q${n(row.depthPass)} ` : ""}${feed}`,
+                  `G98 G${code} ${xy(p)} ${z(u.top - depth)} R${n(u.top + 2)} ${code === 83 ? `Q${n(row.depthPass)} ` : ""}${feed}`,
                 );
               else emit(xy(p));
             }

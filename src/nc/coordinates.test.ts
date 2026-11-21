@@ -6,6 +6,20 @@ import type { InterpreterOptions, WorkSystem } from './types';
 const v = (x = 0, y = 0, z = 0) => ({ x, y, z });
 
 describe('saved WORK frames for path rendering', () => {
+  it('projects rotated WPC arc endpoints and centers using the saved frame', () => {
+    const options = { wpc: { x: -600, y: -300, z: -390, theta: 90 }, toolLengths: { 1: 120 } };
+    const result = runProgram('G43 H1 G0 X-30. Y60. Z5.\nG3 X-40. Y50. Z-2. I0. J-10. F100', options);
+    expect(result.alarms).toEqual([]);
+    const segment = result.segments[1]!;
+    options.wpc.x = -100; options.wpc.theta = 45; options.toolLengths[1] = 200;
+    const work = segmentInWorkCoordinates(segment);
+    expect(work.from.x).toBeCloseTo(60); expect(work.from.y).toBeCloseTo(30);
+    expect(work.to.x).toBeCloseTo(50); expect(work.to.y).toBeCloseTo(40); expect(work.to.z).toBe(-2);
+    if (!('center' in work)) throw Error();
+    expect(work.center.x).toBeCloseTo(50); expect(work.center.y).toBeCloseTo(30);
+    expect(work.radius).toBe(10); expect(work.sweep).toBeCloseTo(Math.PI / 2);
+    expect(work.kind).toBe('arcCCW');
+  });
   it.each([54, 55, 56, 57, 58, 59] as WorkSystem[])('removes G%i and H from endpoints without changing machine positions', system => {
     const options = { workOffsets: { [system]: v(100, -50, 20) }, toolLengths: { 2: 40 } };
     const result = runProgram(`G${system} G43 H2 G0 X10. Y15. Z-2.`, options);

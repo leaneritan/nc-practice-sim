@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useI18n } from "../i18n";
 import type { Expansion } from "../nc/mazatrol/expand";
 import { boundsFor, fitTransform } from "../view/path";
-export function UnitShapes({ shapes }: { shapes: Expansion["shapes"] }) {
+export function UnitShapes({ shapes, wpc }: { shapes: Expansion["shapes"]; wpc?: Expansion["wpc"] }) {
   const { t } = useI18n();
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -53,6 +53,7 @@ export function UnitShapes({ shapes }: { shapes: Expansion["shapes"] }) {
     <section>
       <h3>{t.maz.shapeCheck}</h3>
       <p className="hint">{t.maz.shapeHint}</p>
+      {wpc && <p className="hint" aria-label={t.maz.wpcMachine}>{t.maz.wpcMachine}: X {wpc.x.toFixed(3)} · Y {wpc.y.toFixed(3)} · Z {wpc.z.toFixed(3)} · θ {wpc.theta.toFixed(3)}°</p>}
       <canvas
         className="unit-canvas"
         role="img"

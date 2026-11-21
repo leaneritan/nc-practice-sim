@@ -2,6 +2,8 @@ import type { Heightmap } from './stock';
 import type { SafetySetup } from './safety';
 /** All distances are millimetres; feed is mm/min and spindle speed is rpm. */
 export interface Vec3 { x: number; y: number; z: number }
+/** Machine coordinates of a work origin; theta is rotation about machine Z in degrees. */
+export interface WorkFrame extends Vec3 { theta: number }
 export type WorkSystem = 54 | 55 | 56 | 57 | 58 | 59;
 export type MotionMode = 0 | 1 | 2 | 3 | 81 | 82 | 83 | 84 | null;
 export type AlarmCode =
@@ -65,6 +67,8 @@ export interface ModalState {
 interface SegmentBase {
   /** Frozen machine-to-work translation for this move, including active H. */
   workShift: Vec3;
+  /** Saved Mazatrol XY rotation, for inverse projection into the original work frame. */
+  workRotation?: number;
   coolant: boolean;
   cycle: DrillCycle['kind'] | null;
   line: number;
@@ -89,6 +93,8 @@ export type MotionSegment =
       sweep: number;
     });
 export interface InterpreterOptions {
+  /** Mazatrol origin, independent of the EIA G54–G59 table. XY rotation is baked into generated EIA. */
+  wpc?: WorkFrame;
   sourceUnits?: Record<number, string>;
   safety?: SafetySetup;
   initialStock?: Heightmap;

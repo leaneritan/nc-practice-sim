@@ -84,6 +84,12 @@ M30
 %`;
 
 export const en = {
+  guide: {
+    title: 'How to use', help: 'Help', symbol: '?', back: 'Back to simulator', contents: 'Guide chapters',
+    loading: 'Opening guide…', table: 'Reference table',
+    holdHint: 'Opening the guide holds a running cycle and stops jog input. Returning does not resume motion; use CYCLE START when ready.',
+    chapters: { start: 'Start here', basics: 'Machine basics', controls: 'Control panel', setup: 'Setup', gcode: 'Writing G-code', mazatrol: 'Mazatrol', checking: 'Running and checking', safety: 'Safety habits for the real machine' },
+  },
   maz: {
   entry: 'Pocket entry', ramp: 'Zig-zag ramp (3° maximum)', plunge: 'Plunge (30% feed)',
   unitNames: { COMMON: 'COMMON', WPC: 'WPC', DRILLING: 'DRILLING', 'RGH CBOR': 'RGH CBOR', TAPPING: 'TAPPING', REAMING: 'REAMING', 'FACE MILL': 'FACE MILL', POCKET: 'POCKET', 'LINE OUT': 'LINE OUT', END: 'END' },
@@ -110,7 +116,8 @@ export const en = {
   "removeUnit": "Remove unit",
   "material": "Material",
   "multiOff": "Multiple workpieces: OFF",
-  "wpcHint": "WPC translates and rotates geometry relative to G54. It does not overwrite WORK OFFSET.",
+  wpcMachine: "WPC machine origin",
+  "wpcHint": "WPC X/Y/Z are the machine coordinates of the work origin; θ rotates about Z. Mazatrol uses WPC directly, independently of G54.",
   "shapes": "Shape rows",
   "shapeType": "Shape type",
   "addShape": "Add shape",
@@ -125,7 +132,7 @@ export const en = {
   "viewCode": "View as G-code",
   "learningOnly": "Equivalent EIA for learning only. Not for real machines. SINGLE BLOCK stops after each generated block; POSITION shows its source unit.",
   "shapeCheck": "Unit shapes · XY",
-  "shapeHint": "Part boundaries and hole patterns after WPC transformation, before tool-radius offsets or execution.",
+  "shapeHint": "Part boundaries and hole patterns in WPC work coordinates, before tool-radius offsets or execution. Stock and vise follow the WPC origin and rotation.",
   "fields": {
     toolDepth: 'Total tool depth (mm)',
     "x": "X (mm)",
@@ -173,7 +180,7 @@ export const en = {
   "cubicMm": "mm³",
   "resetCamera": "Reset view",
   "noWebgl": "WebGL is unavailable. Stock simulation, alarms and the 2D views still work.",
-  "viewHint": "Drag to orbit, scroll to zoom, right-drag to pan. Red X, green Y, blue Z. Fixed G54 fixture coordinates.",
+  "viewHint": "Drag to orbit, scroll to zoom, right-drag to pan. Red X, green Y, blue Z. Fixture coordinates: Mazatrol WPC or EIA G54.",
   "modelHint": "1 mm heightmap with 0.5 mm motion sampling. Flat, ball and drill-point cuts; no undercuts, thread geometry, holder or cutting-force model. This is a practice approximation, not collision certification.",
   "magazine": "Tool magazine",
   "mounted": "In spindle",
@@ -187,7 +194,7 @@ export const en = {
   "stockHint": "RESET retains removed material. Replace stock starts a fresh block when the cycle is inactive.",
   "pocketWidth": "Minimum pocket width (mm; 0 = unset)",
   "pocketHint": "Optional intended pocket width for G-code cutting. The simulator cannot infer feature boundaries from a centerline path.",
-  "defaults": "FJV-style travel: X −1020…0, Y −510…0, Z −460…0 mm. Machine Z0 is home; table Z−460. Default stock top: G54 (−500, −250, −400).",
+  "defaults": "FJV-style travel: X −1020…0, Y −510…0, Z −460…0 mm. Machine Z0 is home; table Z−460. Default stock top: G54 / WPC (−500, −250, −400).",
   "preview": "Preview uses a separate stock copy; it does not move the machine or remove its material."
 },
   panel: {
@@ -291,7 +298,7 @@ export const en = {
   }
 },
   title: 'NC Practice Simulator',
-  subtitle: 'Phase 5 · Conversational programming',
+  subtitle: 'Phase 6A · User guide',
   language: 'Language',
   japanese: '日本語',
   english: 'English',
@@ -304,7 +311,7 @@ export const en = {
   exampleHint: 'Choose a rounded contour, four drilled holes, or two tapped holes. Samples use explicit decimal points.',
   previewHint: "Instant calculation only; it does not move the panel machine. It uses the current position and saved setup.",
   assumptions: "Metric · G17 XY plane · work offsets and H lengths come from WORK OFFSET / TOOL DATA.",
-  coordinates: "Paths and listed endpoints use each move’s saved work coordinates, including its active G54–G59 and H compensation. Machine position is shown on POSITION.",
+  coordinates: "Paths and listed endpoints use each move’s saved work coordinates, using Mazatrol WPC or EIA G54–G59, with H compensation. Machine position is shown on POSITION.",
   capabilities: 'G00–G03 · G17/G21/G40/G94 · G43/G49 · G54–G59 · G28/G80/G81/G82/G83/G84 · G90/G91 · G98/G99 · M00/M01/M03–M06/M08/M09/M02/M30',
   limitNote: 'Other codes raise an alarm. Sampled safety checks are for practice only and cannot certify real machining.',
   previous: 'Previous', next: 'Next', page: 'Page',
@@ -317,7 +324,7 @@ export const en = {
   xzCanvas: "XZ side view of the toolpath, stock and vise",
   cutting: "Cutting feed (solid)",
   toolMarker: "Current endpoint",
-  stockNote: "Stock: 100 × 60 × 20 mm, A5052. Origin: lower-left top corner; stock Z = −20 to 0. Vise outlines are illustrative. Views fit independently; safety checks use a fixed G54 fixture.",
+  stockNote: "Stock: 100 × 60 × 20 mm, A5052. Origin: lower-left top corner; stock Z = −20 to 0. Vise outlines are illustrative. Views fit independently; safety checks use the configured fixture (Mazatrol WPC or EIA G54).",
   strictDecimals: "Strict decimal input (0.001 mm)",
   decimalWarning: "Missing decimal point",
   decimalExplanation: "Many real controls interpret a coordinate without a decimal point in 0.001 mm units: X10 can mean 0.010 mm, while X10. means 10 mm. Actual behavior depends on the control and its settings.",

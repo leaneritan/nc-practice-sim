@@ -1,4 +1,5 @@
 import type { MotionSegment, Vec3 } from './types';
+import { machineToWork } from './coordinates';
 
 export type ToolKind = 'endMill' | 'faceMill' | 'centerDrill' | 'drill' | 'tap' | 'reamer' | 'chamfer' | 'ballMill';
 export interface CuttingTool { pocket: number; kind: ToolKind; actual: number; length: number }
@@ -40,8 +41,8 @@ export function pathLength(segment: MotionSegment): number {
     Math.hypot(segment.to.x - segment.from.x, segment.to.y - segment.from.y, segment.to.z - segment.from.z);
 }
 /** Fixed physical fixture: actual tool length, not the programmed H, determines collision/removal. */
-export function physicalTip(machine: Vec3, origin: Vec3, tool?: CuttingTool): Vec3 {
-  return { x: machine.x - origin.x, y: machine.y - origin.y, z: machine.z - origin.z - (tool?.length ?? 0) };
+export function physicalTip(machine: Vec3, origin: Vec3, tool?: CuttingTool, rotation = 0): Vec3 {
+  return machineToWork(machine, { ...origin, z: origin.z + (tool?.length ?? 0) }, rotation);
 }
 export function visitFootprint(map: Heightmap, tool: CuttingTool, tip: Vec3, visit: (index: number, surface: number) => void) {
   const radius = tool.actual / 2;
@@ -63,10 +64,10 @@ export function cutAt(map: Heightmap, tool: CuttingTool, tip: Vec3): boolean {
   return changed;
 }
 /** Record only reached drill-tip depths, in the fixed stock frame. Spotting is not a pilot hole. */
-export function recordDrilling(map: Heightmap, segment: MotionSegment, tool: CuttingTool | undefined, origin: Vec3, fraction = 1): Heightmap {
+export function recordDrilling(map: Heightmap, segment: MotionSegment, tool: CuttingTool | undefined, origin: Vec3, fraction = 1, rotation = 0): Heightmap {
   if (tool?.kind !== 'drill' || segment.kind !== 'linear' || segment.spindle === 'off' || segment.speed <= 0 ||
       segment.to.z >= segment.from.z || Math.hypot(segment.to.x - segment.from.x, segment.to.y - segment.from.y) > 1e-7) return map;
-  const tip = physicalTip(pointAt(segment, fraction), origin, tool);
+  const tip = physicalTip(pointAt(segment, fraction), origin, tool, rotation);
   if (tip.z >= stockBox.max.z || tip.x < stockBox.min.x || tip.x > stockBox.max.x || tip.y < stockBox.min.y || tip.y > stockBox.max.y) return map;
   const holes = map.drilledHoles ?? [];
   const index = holes.findIndex(h => Math.hypot(h.x - tip.x, h.y - tip.y) < 1e-4 && Math.abs(h.diameter - tool.actual) < 1e-6);
@@ -77,17 +78,17 @@ export function recordDrilling(map: Heightmap, segment: MotionSegment, tool: Cut
   return { ...map, drilledHoles: next };
 }
 /** Incremental immutable stock update, used for the partially traversed live motion. */
-export function removeMaterial(map: Heightmap, segment: MotionSegment, tool: CuttingTool | undefined, origin: Vec3, from = 0, to = 1): Heightmap {
+export function removeMaterial(map: Heightmap, segment: MotionSegment, tool: CuttingTool | undefined, origin: Vec3, from = 0, to = 1, rotation = 0): Heightmap {
   if (!tool || segment.kind === 'rapid' || segment.spindle === 'off' || segment.speed <= 0 || to <= from) return map;
   const next = { ...map, heights: map.heights.slice() };
   // Keep the sampling grid anchored to the whole segment, independent of UI tick size.
   const steps = Math.max(1, Math.ceil(pathLength(segment) / .5));
   let changed = false;
   for (let i = Math.ceil(from * steps - 1e-8); i <= Math.floor(to * steps + 1e-8); i++) {
-    changed = cutAt(next, tool, physicalTip(pointAt(segment, i / steps), origin, tool)) || changed;
+    changed = cutAt(next, tool, physicalTip(pointAt(segment, i / steps), origin, tool, rotation)) || changed;
   }
-  changed = cutAt(next, tool, physicalTip(pointAt(segment, to), origin, tool)) || changed;
-  return recordDrilling(changed ? { ...next, revision: map.revision + 1 } : map, segment, tool, origin, to);
+  changed = cutAt(next, tool, physicalTip(pointAt(segment, to), origin, tool, rotation)) || changed;
+  return recordDrilling(changed ? { ...next, revision: map.revision + 1 } : map, segment, tool, origin, to, rotation);
 }
 export function removedVolume(map: Heightmap): number {
   // Trapezoidal boundary weights avoid counting an extra row/column of material.

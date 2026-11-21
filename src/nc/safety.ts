@@ -6,6 +6,8 @@ export interface SafetySetup {
   tools: CuttingTool[];
   /** Fixed stock placement, in machine coordinates; independent of the active G54–G59. */
   stockOrigin: Vec3;
+  /** Fixture orientation about machine Z, in degrees (Mazatrol WPC theta). */
+  stockRotation?: number;
   travel: Box;
   /** Explicit intended pocket width, since EIA paths do not encode feature boundaries. 0 disables this check. */
   pocketWidth: number;
@@ -13,7 +15,7 @@ export interface SafetySetup {
 export const verticalTravel: Box = { min: { x: -1020, y: -510, z: -460 }, max: { x: 0, y: 0, z: 0 } };
 const axes = ['x', 'y', 'z'] as const;
 export function validSafety(setup: SafetySetup): boolean {
-  return axes.every(a => Number.isFinite(setup.stockOrigin[a]) && Math.abs(setup.stockOrigin[a]) <= 1e6 &&
+  return Number.isFinite(setup.stockRotation ?? 0) && axes.every(a => Number.isFinite(setup.stockOrigin[a]) && Math.abs(setup.stockOrigin[a]) <= 1e6 &&
     Number.isFinite(setup.travel.min[a]) && Number.isFinite(setup.travel.max[a]) && setup.travel.min[a] < setup.travel.max[a]) &&
     Number.isFinite(setup.pocketWidth) && setup.pocketWidth >= 0 && setup.pocketWidth <= 1000 &&
     setup.tools.length <= 20 && new Set(setup.tools.map(t => t.pocket)).size === setup.tools.length &&
@@ -48,7 +50,7 @@ export function inspectMotions(segments: MotionSegment[], setup: SafetySetup, st
     const tool = setup.tools.find(t => t.pocket === segment.tool);
     if (segment.tool !== null && !tool) return alarm('toolMissing', `T${segment.tool}`);
     if (tool && (tool.kind === 'tap' || tool.kind === 'reamer') && segment.kind !== 'rapid' && segment.to.z < segment.from.z) {
-      const tip = physicalTip(segment.to, setup.stockOrigin, tool);
+      const tip = physicalTip(segment.to, setup.stockOrigin, tool, setup.stockRotation);
       if (overlaps(tip, tool.actual / 2, stockBox) && tip.z < stockBox.max.z && tip.z >= stockBox.min.z - 1e-6) {
         // Use physical XY, not a heightmap cell or the currently selected work offset.
         const pilots = (next.drilledHoles ?? []).filter(h => Math.hypot(h.x - tip.x, h.y - tip.y) < 1e-4 && h.diameter < tool.actual);
@@ -61,7 +63,7 @@ export function inspectMotions(segments: MotionSegment[], setup: SafetySetup, st
     if (steps > budget) return alarm('limit', 'simulation');
     budget -= steps;
     for (let i = 0; i <= steps; i++) {
-      const tip = physicalTip(pointAt(segment, i / steps), setup.stockOrigin, tool);
+      const tip = physicalTip(pointAt(segment, i / steps), setup.stockOrigin, tool, setup.stockRotation);
       const inStock = overlaps(tip, tool ? tool.actual / 2 : .001, stockBox);
       if (inStock && tip.z < 0 - 1e-6) {
         if (!tool) return alarm('toolMissing', 'T / M06');
@@ -84,7 +86,7 @@ export function inspectMotions(segments: MotionSegment[], setup: SafetySetup, st
       if (setup.pocketWidth > 0 && tool.actual > setup.pocketWidth) return alarm('pocketDiameter', `${tool.actual} > ${setup.pocketWidth}`);
       changed = cutAt(next, tool, tip) || changed;
     }
-    next = recordDrilling(next, segment, tool, setup.stockOrigin);
+    next = recordDrilling(next, segment, tool, setup.stockOrigin, 1, setup.stockRotation);
   }
   return { stock: changed ? { ...next, revision: stock.revision + 1 } : next.drilledHoles !== stock.drilledHoles ? { ...stock, drilledHoles: next.drilledHoles } : stock, alarms: [] };
 }

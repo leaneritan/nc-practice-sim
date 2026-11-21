@@ -2,7 +2,8 @@ import { StockView } from './components/StockView';
 import { machineHome, simulationOptions } from './setup';
 import type { Heightmap } from './nc/stock';
 import { activeWorkShift, segmentInWorkCoordinates } from './nc/coordinates';
-import type { InterpreterOptions, ModalState } from './nc';
+import type { InterpreterOptions, ModalState, WorkFrame } from './nc';
+import { withMazatrolWpc } from './nc/mazatrol/expand';
 import { useEffect, useMemo, useState } from 'react';
 import { PathView } from './components/PathView';
 import { EventLog } from './components/EventLog';
@@ -13,7 +14,7 @@ import { parseProgram, resumeProgram, runProgram } from './nc';
 import type { RunResult, Vec3 } from './nc';
 import { useAppStore } from './store';
 
-export default function PracticePreview({ embedded = false, showEditor = true, modalState, initialStock, programSource, sourceUnits }: { embedded?: boolean; showEditor?: boolean; modalState?: ModalState; initialStock?: Heightmap; programSource?: string; sourceUnits?: Record<number,string> }) {
+export default function PracticePreview({ embedded = false, showEditor = true, modalState, initialStock, programSource, sourceUnits, wpc }: { embedded?: boolean; showEditor?: boolean; modalState?: ModalState; initialStock?: Heightmap; programSource?: string; sourceUnits?: Record<number,string>; wpc?: WorkFrame }) {
   const { t, language } = useI18n();
   const { program: savedProgram, setProgram, setLanguage, strictDecimals, optionalStop, setStrictDecimals, setOptionalStop, workOffsets, tools, pocketWidth } = useAppStore();
   const program = programSource ?? savedProgram;
@@ -21,8 +22,8 @@ export default function PracticePreview({ embedded = false, showEditor = true, m
   const [executedProgram, setExecutedProgram] = useState('');
   const [executedSettings, setExecutedSettings] = useState('');
   const [sample, setSample] = useState<keyof typeof t.samples>('contour');
-  const options: InterpreterOptions = { ...simulationOptions(workOffsets, tools, pocketWidth), strictDecimals, optionalStop, initialStock, sourceUnits,
-    ...(modalState ? { initialModalState: { ...modalState, paused: null, ended: false } } : {}) };
+  const options = withMazatrolWpc({ ...simulationOptions(workOffsets, tools, pocketWidth), strictDecimals, optionalStop, initialStock, sourceUnits,
+    ...(modalState ? { initialModalState: { ...modalState, paused: null, ended: false } } : {}) }, wpc);
   const [resultOptions, setResultOptions] = useState<InterpreterOptions>({});
   const settingsKey = JSON.stringify(options);
   const warnings = useMemo(() => parseProgram(program, { strictDecimals }).warnings, [program, strictDecimals]);
@@ -102,9 +103,9 @@ export default function PracticePreview({ embedded = false, showEditor = true, m
           <button className="primary" disabled={stale} onClick={() => { setResult(resumeProgram(result)); setPage(0); }}>{t.continueRun}</button>
           <p className="hint">{t.pauseHint}</p>
         </div>}
-        <PathView segments={result?.segments ?? []} position={result?.state.position ?? machineHome} workShift={result ? activeWorkShift(result.state, resultOptions) : undefined} />
+        <PathView segments={result?.segments ?? []} position={result?.state.position ?? machineHome} workShift={result ? activeWorkShift(result.state, resultOptions) : undefined} workRotation={resultOptions.wpc?.theta} />
         {result?.stock && <StockView stock={result.stock} position={result.state.position} origin={resultOptions.safety?.stockOrigin ?? workOffsets[54]}
-          tool={resultOptions.safety?.tools.find(tool => tool.pocket === result.state.tool)} />}
+          rotation={resultOptions.safety?.stockRotation} tool={resultOptions.safety?.tools.find(tool => tool.pocket === result.state.tool)} />}
         {result && result.events.length > 0 && <EventLog events={result.events} />}
         {result?.alarms.map((alarm, index) => <div role="alert" className="alarm" key={index}>
           <strong>{sourceUnits?.[alarm.line] && <>{t.maz.unit} {sourceUnits[alarm.line]} · </>}<Term id="alarm" /> · {t.line} {alarm.line}</strong>

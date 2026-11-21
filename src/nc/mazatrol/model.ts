@@ -1,5 +1,6 @@
 import type { CuttingTool, ToolKind } from "../stock";
 import { stockBox } from "../stock";
+import { defaultWorkOrigin } from "../coordinates";
 export type Material = "A5052" | "S45C" | "SUS304" | "SS400";
 export type PointKind = "DRILLING" | "RGH CBOR" | "TAPPING" | "REAMING";
 export interface XY {
@@ -55,7 +56,7 @@ export type Unit =
   | (Base & { kind: "END" });
 export type CuttingUnit = Extract<Unit, { tools: ToolRow[] }>;
 export interface MazatrolProgram {
-  version: 1;
+  version: 2;
   units: Unit[];
   extensions?: Record<string, unknown>;
 }
@@ -111,10 +112,10 @@ export function newUnit(kind: CuttingUnit["kind"], id: string): CuttingUnit {
 }
 export function blankMazatrol(): MazatrolProgram {
   return {
-    version: 1,
+    version: 2,
     units: [
       { id: "common", kind: "COMMON", material: "A5052", initialZ: 15 },
-      { id: "wpc", kind: "WPC", x: 0, y: 0, z: 0, theta: 0 },
+      { id: "wpc", kind: "WPC", ...defaultWorkOrigin(), theta: 0 },
       { id: "end", kind: "END" },
     ],
   };

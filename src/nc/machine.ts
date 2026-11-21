@@ -151,7 +151,7 @@ export function tickMachine(previous: Machine, milliseconds: number): Machine {
     pending.fraction = duration <= 1e-9 ? 1 : Math.min(1, pending.fraction + delta / duration);
     remaining -= delta;
     if (session.options.safety) machine.stock = removeMaterial(machine.stock, segment,
-      session.options.safety.tools.find(tool => tool.pocket === segment.tool), session.options.safety.stockOrigin, beforeFraction, pending.fraction);
+      session.options.safety.tools.find(tool => tool.pocket === segment.tool), session.options.safety.stockOrigin, beforeFraction, pending.fraction, session.options.safety.stockRotation);
     machine.state.position = pointOnSegment(segment, pending.fraction);
     if (pending.fraction < 1 - 1e-10) return machine;
     machine.state.position = { ...segment.to };
@@ -192,7 +192,7 @@ export function manualMove(machine: Machine, axis: keyof Vec3, direction: -1 | 1
     return { ...machine, status: 'alarm', alarms: [{ code: 'limit', line: 0, detail: axis.toUpperCase() }] };
   }
   if (to[axis] === from[axis]) return machine;
-  const segment: MotionSegment = { kind: 'rapid', from, to, workShift: activeWorkShift(machine.state, options), line: 0,
+  const segment: MotionSegment = { kind: 'rapid', from, to, workShift: activeWorkShift(machine.state, options), ...(options.wpc ? { workRotation: options.wpc.theta } : {}), line: 0,
     feed: null, workSystem: machine.state.workSystem, lengthOffset: machine.state.lengthOffset,
     tool: machine.state.tool, diameterOffset: machine.state.diameterOffset, coolant: machine.state.coolant,
     cycle: null, spindle: machine.state.spindle, speed: machine.state.speed };

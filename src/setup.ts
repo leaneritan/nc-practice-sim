@@ -1,6 +1,7 @@
 import type { InterpreterOptions } from './nc';
 import { verticalTravel } from './nc/safety';
 import type { Vec3, WorkSystem } from './nc';
+import { defaultWorkOrigin } from './nc/coordinates';
 
 export const workSystems: WorkSystem[] = [54, 55, 56, 57, 58, 59];
 export const toolKinds = ['endMill', 'faceMill', 'centerDrill', 'drill', 'tap', 'reamer', 'chamfer', 'ballMill'] as const;
@@ -8,7 +9,7 @@ export type { ToolKind } from './nc/stock';
 import type { ToolKind } from './nc/stock';
 export interface ToolData { pocket: number; kind: ToolKind; nominal: number; actual: number; length: number; life: number }
 export function defaultOffsets(): Record<WorkSystem, Vec3> {
-  return Object.fromEntries(workSystems.map(id => [id, { x: -500, y: -250, z: -400 }])) as Record<WorkSystem, Vec3>;
+  return Object.fromEntries(workSystems.map(id => [id, defaultWorkOrigin()])) as Record<WorkSystem, Vec3>;
 }
 export function defaultTools(): ToolData[] {
   const presets: [ToolKind, number, number][] = [
