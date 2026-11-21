@@ -7,7 +7,7 @@ import { physicalTip, removedVolume, viseBoxes } from '../nc/stock';
 import type { Vec3 } from '../nc';
 import { stockVertices } from '../view/stockMesh';
 
-export function StockView({ stock, position, origin, tool }: { stock: Heightmap; position: Vec3; origin: Vec3; tool?: CuttingTool }) {
+export function StockView({ stock, position, origin, rotation = 0, tool }: { stock: Heightmap; position: Vec3; origin: Vec3; rotation?: number; tool?: CuttingTool }) {
   const { t } = useI18n();
   const host = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{ stock: THREE.Mesh; tool: THREE.Mesh; renderer: THREE.WebGLRenderer; reset: () => void } | null>(null);
@@ -60,10 +60,10 @@ export function StockView({ stock, position, origin, tool }: { stock: Heightmap;
   useEffect(() => {
     const meshes = sceneRef.current; if (!meshes) return;
     meshes.renderer.domElement.setAttribute('aria-label', t.sim.canvas);
-    const tip = physicalTip(position, origin, tool);
+    const tip = physicalTip(position, origin, tool, rotation);
     meshes.tool.visible = !!tool;
     if (tool) { meshes.tool.scale.set(tool.actual / 2, tool.length, tool.actual / 2); meshes.tool.position.set(tip.x, tip.y, tip.z + tool.length / 2); }
-  }, [position, origin, tool, t.sim.canvas]);
+  }, [position, origin, rotation, tool, t.sim.canvas]);
   return <section className="stock-view" aria-label={t.sim.title}>
     <div className="result-heading"><h3>{t.sim.title}</h3><button onClick={() => sceneRef.current?.reset()}>{t.sim.resetCamera}</button></div>
     <div ref={host} className="stock-canvas" />

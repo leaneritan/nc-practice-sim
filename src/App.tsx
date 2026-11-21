@@ -1,5 +1,5 @@
 import { usePrograms } from './programs';
-import { expandMazatrol } from './nc/mazatrol/expand';
+import { expandMazatrol, withMazatrolWpc } from './nc/mazatrol/expand';
 import { ProgramLibrary } from './components/ProgramLibrary';
 import { MazatrolEditor } from './components/MazatrolEditor';
 import { UnitShapes } from './components/UnitShapes';
@@ -52,12 +52,16 @@ export default function App() {
   const [jogInput, setJogInput] = useState<JogInput>(null);
   const [sample, setSample] = useState<keyof typeof t.samples>('contour');
   const busy = locked(machine);
-  const options = useMemo<InterpreterOptions>(() => ({ ...simulationOptions(store.workOffsets, store.tools, store.pocketWidth),
-    strictDecimals: store.strictDecimals, optionalStop: store.optionalStop, sourceUnits: unitLabels,
-  }), [store.workOffsets, store.tools, store.pocketWidth, store.strictDecimals, store.optionalStop, unitLabels]);
+  const options = useMemo<InterpreterOptions>(() => {
+    const configured = withMazatrolWpc({ ...simulationOptions(store.workOffsets, store.tools, store.pocketWidth),
+      strictDecimals: store.strictDecimals, optionalStop: store.optionalStop, sourceUnits: unitLabels,
+    }, expansion?.wpc);
+    // MDI is EIA input even with a Mazatrol document selected. Keep the physical fixture.
+    return machine.mode === 'MDI' ? { ...configured, wpc: undefined, sourceUnits: undefined } : configured;
+  }, [store.workOffsets, store.tools, store.pocketWidth, store.strictDecimals, store.optionalStop, unitLabels, expansion, machine.mode]);
   const activeOptions = machine.session?.options ?? options;
   const shift = activeWorkShift(machine.state, activeOptions);
-  const work = machineToWork(machine.state.position, shift);
+  const work = machineToWork(machine.state.position, shift, activeOptions.wpc?.theta);
   const trace = useMemo(() => visibleSegments(machine), [machine]);
   const source = machine.mode === 'MDI' ? mdi : memorySource;
   const warnings = useMemo(() => parseProgram(source, { strictDecimals: store.strictDecimals }).warnings, [source, store.strictDecimals]);
@@ -112,7 +116,7 @@ export default function App() {
   const pending = machine.session?.pending;
   const operation = pending?.operations[pending.index];
   const changing = operation?.kind === 'event' && operation.event.kind === 'toolChange';
-  const stockView = <StockView stock={machine.stock} position={machine.state.position} origin={stockOrigin} tool={tool} />;
+  const stockView = <StockView stock={machine.stock} position={machine.state.position} origin={stockOrigin} rotation={activeOptions.safety?.stockRotation} tool={tool} />;
   const magazine = <Magazine tools={store.tools} mounted={machine.state.tool} selected={pending?.state.selectedTool ?? machine.state.selectedTool} changing={!!changing} />;
   function coordinates(label: string, point: Vec3, term: 'workCoordinate' | 'machineCoordinate' | null) {
     return <section className="position-card" aria-label={label}>
@@ -149,8 +153,8 @@ export default function App() {
               {coordinates(t.panel.machinePosition, machine.state.position, 'machineCoordinate')}
               {coordinates(t.panel.remaining, distanceRemaining(machine), null)}
             </div>
-            <p className="hint">G{machine.state.workSystem} · H{machine.state.lengthOffset ?? 0} · {t.panel.block} {machine.line || t.dash}</p>
-            <PathView segments={trace} position={machine.state.position} workShift={shift} />
+            <p className="hint">{activeOptions.wpc ? t.maz.unitNames.WPC : `G${machine.state.workSystem}`} · H{machine.state.lengthOffset ?? 0} · {t.panel.block} {machine.line || t.dash}</p>
+            <PathView segments={trace} position={machine.state.position} workShift={shift} workRotation={activeOptions.wpc?.theta} />
             <p className="hint">{t.panel.traceHint}</p>{stockView}{magazine}
           </section>}
           {screen === 'PROGRAM' && <section>
@@ -188,11 +192,11 @@ export default function App() {
           </section>}
           {screen === 'SHAPE CHECK' && <section>
             <h2>{t.panel.screens['SHAPE CHECK']} · <Term id="workCoordinate" /></h2>
-            {expansion && <><UnitShapes shapes={expansion.shapes} />{expansion.issues.map((issue,i) => <p className="alarm" role="alert" key={i}>{t.maz.unit} {issue.unit}: {t.maz.errors[issue.code]}</p>)}</>}
-            {expansion?.issues.length ? null : (busy || machine.session || trace.length > 0) ? <><PathView segments={trace} position={machine.state.position} workShift={shift} />
+            {expansion && <><UnitShapes shapes={expansion.shapes} wpc={expansion.wpc} />{expansion.issues.map((issue,i) => <p className="alarm" role="alert" key={i}>{t.maz.unit} {issue.unit}: {t.maz.errors[issue.code]}</p>)}</>}
+            {expansion?.issues.length ? null : (busy || machine.session || trace.length > 0) ? <><PathView segments={trace} position={machine.state.position} workShift={shift} workRotation={activeOptions.wpc?.theta} />
               {stockView}<p className="hint">{t.panel.traceHint}</p>{machine.events.length > 0 && <EventLog events={machine.events} />}
               {!busy && <p className="hint">{t.panel.previewResetHint}</p>}</>
-              : <PracticePreview embedded showEditor={false} modalState={machine.state} initialStock={machine.stock} programSource={memorySource} sourceUnits={unitLabels} />}
+              : <PracticePreview embedded showEditor={false} modalState={machine.state} initialStock={machine.stock} programSource={memorySource} sourceUnits={unitLabels} wpc={expansion?.wpc} />}
           </section>}
           {screen === 'WORK OFFSET' && <WorkOffsetScreen disabled={busy} active={machine.state.workSystem} beforeEdit={invalidate}
             select={system => setMachine(current => { const reset = resetMachine(current); return { ...reset, state: { ...reset.state, workSystem: system } }; })} />}

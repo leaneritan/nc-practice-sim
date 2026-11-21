@@ -3,6 +3,7 @@ import { createStock } from './stock';
 import type { Heightmap } from './stock';
 import { arcFromCenter, arcFromRadius } from './geometry';
 import { parseProgram } from './parser';
+import { machineToWork } from './coordinates';
 import type {
   AlarmCode, Block, DrillCycle, InterpreterOptions, ModalState,
   MotionMode, MotionSegment, RunResult, Vec3, WorkSystem, ProgramEvent,
@@ -37,6 +38,7 @@ export function initialState(position: Vec3 = zero()): ModalState {
 }
 
 interface Configuration {
+  wpc?: InterpreterOptions['wpc'];
   safety?: InterpreterOptions['safety'];
   workOffsets: Record<WorkSystem, Vec3>;
   toolLengths: Record<number, number>;
@@ -49,22 +51,23 @@ function configure(options: InterpreterOptions): Configuration {
   const workOffsets = { 54: zero(), 55: zero(), 56: zero(), 57: zero(), 58: zero(), 59: zero(), ...options.workOffsets };
   const toolLengths = { ...(options.toolLengths ?? { 1: 0 }) };
   const peckClearance = options.peckClearance ?? 0.5;
-  if (!vectorValid(options.initialPosition ?? zero()) || !vectorValid(options.referencePosition ?? zero()) ||
+  if ((options.wpc && (!vectorValid(options.wpc) || !finite(options.wpc.theta))) ||
+      !vectorValid(options.initialPosition ?? zero()) || !vectorValid(options.referencePosition ?? zero()) ||
       Object.entries(workOffsets).some(([key, value]) => ![54, 55, 56, 57, 58, 59].includes(Number(key)) || !vectorValid(value)) ||
       Object.entries(toolLengths).some(([key, value]) => !Number.isInteger(Number(key)) || Number(key) < 1 || !finite(value) || value < 0) ||
       !finite(peckClearance) || peckClearance <= 0) fail('configuration', 'offsets');
-  return { safety: options.safety, workOffsets, toolLengths, peckClearance, referencePosition: { ...(options.referencePosition ?? zero()) }, optionalStop: options.optionalStop ?? false };
+  return { wpc: options.wpc, safety: options.safety, workOffsets, toolLengths, peckClearance, referencePosition: { ...(options.referencePosition ?? zero()) }, optionalStop: options.optionalStop ?? false };
 }
 
 function translation(state: ModalState, config: Configuration): Vec3 {
-  const work = config.workOffsets[state.workSystem];
-  return { ...work, z: work.z + (state.lengthOffset === null ? 0 : config.toolLengths[state.lengthOffset]!) };
+  const work = config.wpc ?? config.workOffsets[state.workSystem];
+  return { x: work.x, y: work.y, z: work.z + (state.lengthOffset === null ? 0 : config.toolLengths[state.lengthOffset]!) };
 }
 
 /** Work coordinates describe the programmed tool tip; position stores the machine reference point. */
 export function workPosition(state: ModalState, options: InterpreterOptions = {}): Vec3 {
   const shift = translation(state, configure(options));
-  return { x: state.position.x - shift.x, y: state.position.y - shift.y, z: state.position.z - shift.z };
+  return machineToWork(state.position, shift, options.wpc?.theta);
 }
 
 function executeBlock(block: Block, previous: ModalState, config: Configuration, budget: number) {
@@ -155,7 +158,7 @@ function executeBlock(block: Block, previous: ModalState, config: Configuration,
     if (!vectorValid(to)) fail('invalidValue', 'XYZ');
     if (axes.every(axis => Math.abs(to[axis] - state.position[axis]) < 1e-10)) return;
     if (segments.length >= budget) fail('limit', 'segments');
-    segments.push({ kind, workShift: { ...shift }, coolant: state.coolant, cycle: state.cycle?.kind ?? null, from: { ...state.position }, to: { ...to }, line: block.line,
+    segments.push({ kind, workShift: { ...shift }, ...(config.wpc ? { workRotation: config.wpc.theta } : {}), coolant: state.coolant, cycle: state.cycle?.kind ?? null, from: { ...state.position }, to: { ...to }, line: block.line,
       feed: kind === 'rapid' ? null : state.feed, workSystem: state.workSystem,
       lengthOffset: state.lengthOffset, tool: state.tool, diameterOffset: state.diameterOffset, spindle: state.spindle, speed: state.speed });
     state.position = { ...to };
@@ -235,7 +238,7 @@ function executeBlock(block: Block, previous: ModalState, config: Configuration,
       : arcFromCenter(state.position, target, values.get('I') ?? 0, values.get('J') ?? 0, clockwise);
     if (!arc) fail('arcGeometry', 'I/J/R');
     if (segments.length >= budget) fail('limit', 'segments');
-    segments.push({ workShift: { ...shift }, coolant: state.coolant, cycle: null, kind: clockwise ? 'arcCW' : 'arcCCW', from: { ...state.position }, to: { ...target },
+    segments.push({ workShift: { ...shift }, ...(config.wpc ? { workRotation: config.wpc.theta } : {}), coolant: state.coolant, cycle: null, kind: clockwise ? 'arcCW' : 'arcCCW', from: { ...state.position }, to: { ...target },
       line: block.line, feed: state.feed, workSystem: state.workSystem, lengthOffset: state.lengthOffset,
       tool: state.tool, diameterOffset: state.diameterOffset, spindle: state.spindle, speed: state.speed, ...arc });
     state.position = { ...target };

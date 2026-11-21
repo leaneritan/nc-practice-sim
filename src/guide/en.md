@@ -5,7 +5,7 @@
 1. Use this app to practise reading programs, entering Mazatrol units, operating a simplified panel and checking simulated cuts. **Practice simulator — always follow company training on real machines.** This is not an official Mazak control, a CAM system, a machine connection or proof that a program is safe on real equipment. Matrix/Smooth versions differ.
 2. Find the four areas in the diagram. The bottom screen keys change what you see; the mode keys change how the simulated machine accepts commands.
 3. Use **日本語 / English** in the header. The guide follows that switch and keeps the current chapter. Hover, focus or tap an underlined term such as [work coordinates](term:workCoordinate); Escape closes its tooltip. The glossary is below the simulator.
-4. For a fresh exercise, stop/reset an active cycle, then click **Reset to default setup** below the panel. It restores G54–G59, all tools and pocket width, returns the simulated machine home, unloads the tool and replaces the stock. Programs and language remain saved.
+4. For a fresh exercise, stop/reset an active cycle, then click **Reset to default setup** below the panel. It restores G54–G59, all tools and pocket width, returns the simulated machine home, unloads the tool and replaces the stock. Programs, their WPC values and language remain saved.
 5. Open **How to use** for this chapter, or **?** beside a screen for matching help. Opening help applies FEED HOLD and stops jog input. Return with **Back to simulator**; resume explicitly with CYCLE START. Programs/setup/language persist in this browser; position and removed stock do not survive a reload.
 
 ```text
@@ -20,16 +20,16 @@
 
 ## 2. Machine basics
 
-1. Open POSITION after resetting the default setup. [Machine coordinates](term:machineCoordinate) reference the fixed machine home; [work coordinates](term:workCoordinate) reference the part origin. At home with H off, machine XYZ is `(0, 0, 0)` but work XYZ is `(500, 250, 400)`.
+1. Select an EIA program and open POSITION after resetting the default setup. [Machine coordinates](term:machineCoordinate) reference the fixed machine home; [work coordinates](term:workCoordinate) reference the part origin. At home with H off, machine XYZ is `(0, 0, 0)` but work XYZ is `(500, 250, 400)`.
 2. Open WORK OFFSET and inspect [G54](term:workOffset): **X−500, Y−250, Z−400 mm**. It places the stock's lower-left top corner in machine space. The stock extends +X/+Y, with work Z from −20 to 0. G55–G59 are other stored frames; all start with these same values here.
 3. Inspect [tool-length compensation](term:toolLength). T selects a tool, M06 mounts it, and G43 H selects its length register. T1 is a Ø6 end mill, H1 = **120 mm**. H is a length value, not a work offset. G49 cancels its application; it does not shorten the physical tool.
 4. For a coordinate-only exercise, reset defaults, select MDI and enter `T1 M06`, then CYCLE START. After completion, enter `G54 G00 G43 H1 X10. Y15. Z5.` and start again. POSITION should show work `(10, 15, 5)` and machine `(−490, −235, −275)`. The correct H makes the programmed work Z the tool-tip height.
-5. Read the side-view diagram. Machine Z0 is at the top of travel, so normal working positions are negative. This does **not** mean the tool is below the stock: work Z5 is 5 mm above its top. The machine reference point, the tool tip and the table are different things.
+5. Read the side-view diagram. Machine Z0 is at the top of travel, so normal working positions are negative. This does **not** mean the tool is below the stock: work Z5 is 5 mm above its top. The spindle gauge line, the tool tip and the table are different things.
 
 ```text
 Z (machine)                     Example with T1 / H1 = 120
    0  ─ home: top of travel
-−275  ─ machine reference point ┐
+−275  ─ spindle gauge line      ┐
                                │ 120 mm tool length
 −395  ─ tool tip                ┘  = work Z +5
 −400  ─ stock top / G54 Z           = work Z  0
@@ -97,7 +97,7 @@ With focus outside inputs/buttons, arrow keys move X/Y and Page Up/Down move Z i
 
 1. Reset defaults for the exercise. Identify the [stock](term:stock) and [vise](term:vise): a 100 × 60 × 20 mm block, top at work Z0; jaws alongside Y0/Y60 below Z−5. The table is at machine Z−460. Stock size and vise geometry are fixed, illustrative models, not editable machine-certified fixtures.
 2. Open TOOL DATA. Check pocket number, tool type, nominal/actual diameter and length. Actual diameter controls removal/collision checks; H1–H20 use the row lengths. Save a valid field with Enter or blur. Life is stored but not consumed. A pocket-width limit of 0 disables that extra EIA check; otherwise it must describe the intended pocket, not the stock width.
-3. Open WORK OFFSET. Check the active G54–G59 and XYZ values against the intended part origin. Changing G54 also places the fixed simulated stock/vise; G55–G59 select alternative programming frames. Check numbers rather than assuming the currently highlighted frame is correct.
+3. Open WORK OFFSET. Check the active G54–G59 and XYZ values against the intended part origin. For EIA programs, changing G54 also places the fixed simulated stock/vise; G55–G59 select alternative programming frames. For Mazatrol, inspect WPC in PROGRAM instead: it places and rotates the stock/vise independently of G54. Check numbers rather than assuming the currently highlighted frame is correct.
 4. Review the checklist before CYCLE START. T only preselects a tool. M06 requires machine Z0, stopped spindle and canceled cycle, then takes two simulated seconds. Apply the matching G43 H afterwards. See [machine basics](#basics) for the numbers.
 
 ```text
@@ -106,13 +106,13 @@ XY plan: stock top                 XZ side (work Z)
 jaw        │ 100 × 60 mm  │         −5 ├─ jaws ─┤
        Y0  └──────────────┘        −20 └─────────┘ stock bottom
            X0           X100       −30 … vise base
-           ↑ G54 work origin
+           ↑ G54 / WPC work origin
 ```
 
 | Setup checklist | Verify |
 | --- | --- |
 | Program and material | Correct program/type, units in mm, material and machining order? |
-| Work origin | Correct G54–G59, signs and stock placement? Mazatrol WPC is relative to G54. |
+| Work origin | Correct G54–G59, signs and stock placement? Mazatrol WPC is the machine-coordinate origin, independent of G54. |
 | Tools | Correct T/type/actual diameter; H matches the physical tool length? |
 | Holding and clearance | Stock/vise understood; approach/retract and tool-change route clear? |
 | Depths and holes | Above the stock bottom; blind pilot deeper than tap/reamer; spot tool large enough? |
@@ -125,7 +125,7 @@ Setup fields are locked during running/held cycles. Replace stock restores mater
 
 1. Reset defaults. In EDIT → PROGRAM → Program list / Create program, create **EIA/ISO (G-code)**. Paste the example below. It drills two Ø6.8 holes at (20,20) and (80,20), 8 mm below the original stock top. Its speeds/feeds are simulator practice values.
 2. Read every commented line. The safe start explicitly sets [absolute positioning](term:absolute), millimetres, XY plane and feed/minute; it cancels an old cycle before tool change. [G28](term:machineCoordinate) goes via an intermediate point: `G91 G28 Z0.` uses zero incremental displacement, then returns Z home. Restore G90 afterwards.
-3. Observe the [modal](term:modal) cycle: declare G81 with the first hole, use XY alone for the next hole, then **G80**. G83 adds peck Q, G82 adds dwell P in integer milliseconds, and G84 taps with M03/S and pitch-correct F. The complete G81 cycle is one single block.
+3. Observe the [modal](term:modal) cycle: declare G81 with the first hole, use XY alone for the next hole, then **G80**. G83 adds peck Q, G82 adds dwell P in integer milliseconds, and G84 taps with M03/S and pitch-correct F. The complete G81 cycle is one single block. Some controls allow several M codes per block, but one M code per line is the safer habit.
 4. Check decimal points. **X10. = 10 mm**. A yellow warning appears for **X10**: many real controls interpret it as **0.010 mm**, depending on settings. This app normally keeps 10 mm; **Strict decimal input** changes decimal-less X/Y/Z/I/J/R/Q to 0.001 mm units. F/S/P/T/H/D are not scaled. Use explicit decimals in distance words.
 5. Open SHAPE CHECK and Run before MEMORY → CYCLE START. This example should finish without alarms and return machine Z to 0. Copy the code into this simulator only.
 
@@ -137,7 +137,8 @@ Safe start → Z home → T / M06 → G43 H → spindle/coolant
 ```gcode
 O6001 (TWO HOLES - SIMULATOR PRACTICE ONLY)
 G21 G17 G90 G94 G40 G80 (MM, XY, ABSOLUTE, FEED/MIN, CANCEL CYCLES)
-M05 M09 (STOP SPINDLE AND COOLANT)
+M05 (STOP SPINDLE)
+M09 (COOLANT OFF)
 G91 G28 Z0. (ZERO INCREMENTAL INTERMEDIATE POINT, THEN Z HOME)
 G90 G49 G54 (ABSOLUTE, CANCEL OLD H, SELECT WORK OFFSET)
 T2 M06 (MOUNT DEFAULT 6.8 MM DRILL AT MACHINE Z0)
@@ -148,7 +149,8 @@ G98 G81 X20. Y20. Z-8. R3. F120 (FIRST HOLE, RETURN TO INITIAL Z15)
 X80. Y20. (SECOND HOLE, REUSE ACTIVE G81 PARAMETERS)
 G80 (CANCEL THE DRILLING CYCLE)
 G00 Z15. (RETRACT TO CLEARANCE)
-M09 M05 (COOLANT AND SPINDLE OFF)
+M09 (COOLANT OFF)
+M05 (STOP SPINDLE)
 G91 G28 Z0. (RETURN Z HOME VIA ZERO INCREMENTAL DISPLACEMENT)
 G90 (RESTORE ABSOLUTE INPUT)
 M30 (END PROGRAM)
@@ -159,11 +161,13 @@ The simulator supports G00–G03, G17/G21/G40/G94, G43/G49, G54–G59, G28, G80�
 ## 6. Mazatrol
 
 1. Reset defaults, select EDIT → PROGRAM, open the program list and create **Mazatrol**, or click **Load Mazatrol sample**. The original EIA program remains in the list. Programs are separate saved documents.
-2. Select each unit button and fill the forms. [COMMON](term:commonUnit) sets material and initial/clearance Z; [WPC](term:wpcUnit) shifts/rotates the geometry relative to G54. Start with A5052, initial Z15 and WPC XYZ/θ = 0. WPC does not overwrite WORK OFFSET. [END](term:endUnit) finishes with spindle/coolant off and Z home.
+2. Select each unit button and fill the forms. [COMMON](term:commonUnit) sets material and initial/clearance Z; [WPC](term:wpcUnit) X/Y/Z are the **machine coordinates of the work origin**, and θ rotates about Z (positive counterclockwise viewed from +Z). Mazatrol uses WPC directly and does not use G54. Start with A5052, initial Z15 and WPC **X−500, Y−250, Z−400, θ0**, the new-program/sample defaults. They initially match the default G54 numbers but are independent: editing WORK OFFSET does not move this Mazatrol program. Stock/vise follow WPC; SHAPE CHECK, paths and work POSITION use local WPC coordinates. For WPC (−500, −250, −400, θ90), local XY(20,10) becomes machine XY(−510,−230). [END](term:endUnit) finishes with spindle/coolant off and Z home.
 3. Add machining units before END. Point units are DRILLING, [RGH CBOR](term:counterbore), [TAPPING](term:tapping) and [REAMING](term:reaming). Face units are [FACE MILL](term:facing) and [POCKET](term:pocket). [LINE OUT](term:outsideContour) accepts closed convex outlines, with LINE endpoints and ARC endpoints/centres/direction; arc joins must be tangent.
 4. Add shape rows using the reference below. Remove the default PT if replacing it with a pattern; otherwise it remains an extra hole. For the sample's four M8 holes use SQR X15/Y15, width70/height30.
 5. Click [Generate tool sequence](term:autoTools) after material/dimension changes. Rows stay editable; regeneration replaces manual overrides. T/H/type/diameter must match TOOL DATA; T0 means no matching tool. [Cutting speed](term:cuttingSpeed) C-SP is m/min; [feed](term:feed) FR is mm/min. These are practice suggestions, not validated cutting data.
-6. Inspect SHAPE CHECK before running and open **View as G-code** to compare the equivalent EIA. Both formats use the same motion, stock and alarms. The generated code is for learning only; real Mazatrol versions differ.
+6. Inspect SHAPE CHECK before running and open **View as G-code** to compare the equivalent EIA. Both formats use the same motion, stock and alarms. The comparison includes a **commented** `G10 L2 P1 X-500.0000 Y-250.0000 Z-400.0000` example using the current WPC values: an equivalent EIA program needs G54 set to that machine origin. Rotation is already applied to the emitted XY/IJ, so do not apply it twice. The app does not execute that comment or implement G10. The generated code is for learning only; real Mazatrol versions differ.
+
+Old saved version-1 programs are converted once: **new WPC XYZ = old relative WPC XYZ + current saved G54 XYZ**; θ, shape/tool rows and extensions are retained. The version-2 data is saved, so later G54 edits or reloads do not shift it again. Reset to default setup retains programs and their WPC values.
 
 ```text
 COMMON → WPC → FACE MILL → TAPPING → POCKET → END

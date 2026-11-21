@@ -10,7 +10,7 @@ import {
   unitKinds,
 } from "./model";
 import type { CuttingUnit, Edge, MazatrolProgram, Material } from "./model";
-import { expandMazatrol, outsideContour, pointsFor } from "./expand";
+import { expandMazatrol, outsideContour, pointsFor, withMazatrolWpc } from "./expand";
 import { defaultOffsets, defaultTools, simulationOptions } from "../../setup";
 import { runProgram } from "../interpreter";
 import {
@@ -162,16 +162,16 @@ describe("equivalent EIA and shared simulation", () => {
     if (!("shapes" in u)) throw Error();
     u.diameter = 6.8;
     u.tools = autoTools(u, "A5052", tools);
-    u.shapes = [{ kind: "PT", x: 10, y: 0 }];
+    u.shapes = [{ kind: "PT", x: 10, y: 10 }];
     const p = pack(u);
-    p.units[1] = { id: "wpc", kind: "WPC", x: 20, y: 20, z: -1, theta: 90 };
+    p.units[1] = { id: "wpc", kind: "WPC", x: -480, y: -230, z: -401, theta: 90 };
     const e = expandMazatrol(p, tools);
     expect(e.issues).toEqual([]);
-    expect(e.source).toContain("X20.0000 Y30.0000");
-    expect(e.source).toContain("Z-6.0000");
-    expect(e.shapes[0]?.points[0]?.x).toBeCloseTo(20);
-    expect(e.shapes[0]?.points[0]?.y).toBeCloseTo(33.4);
-    expect(runProgram(e.source, options()).alarms).toEqual([]);
+    expect(e.source).toContain("X-10.0000 Y10.0000");
+    expect(e.source).toContain("Z-5.0000");
+    expect(e.shapes[0]?.points[0]?.x).toBeCloseTo(13.4);
+    expect(e.shapes[0]?.points[0]?.y).toBeCloseTo(10);
+    expect(runProgram(e.source, withMazatrolWpc(options(), e.wpc)).alarms).toEqual([]);
   });
   it("counterbores clear concentric circles in depth passes", () => {
     const u = prepared("RGH CBOR");
@@ -241,7 +241,7 @@ describe("equivalent EIA and shared simulation", () => {
     );
     m = tickMachine(m, 10000);
     expect(m.status).toBe("singleBlock");
-    expect(m.line).toBe(1);
+    expect(e.source.split("\n")[m.line - 1]).toBe("G21 G17 G90 G94 G40 G80");
     expect(m.session?.options.sourceUnits?.[m.line]).toBe("common");
     m = cycleStart(setControls(m, { singleBlock: false }), "", options());
     m = tickMachine(m, 3000);
@@ -296,14 +296,14 @@ describe("LINE OUT tool-radius offset", () => {
     program.units[1] = {
       id: "wpc",
       kind: "WPC",
-      x: 80,
-      y: -20,
-      z: 0,
+      x: -420,
+      y: -270,
+      z: -400,
       theta: 90,
     };
     const e = expandMazatrol(program, tools);
     expect(e.issues).toEqual([]);
-    const r = runProgram(e.source, options());
+    const r = runProgram(e.source, withMazatrolWpc(options(), e.wpc));
     expect(r.alarms).toEqual([]);
     expect(r.segments.find((s) => s.kind === "arcCCW")).toMatchObject({
       radius: 13,
@@ -376,7 +376,7 @@ describe("validation and storage", () => {
     for (const p of [
       null,
       {},
-      { version: 2, units: [] },
+      { version: 3, units: [] },
       { ...blankMazatrol(), units: [] },
       {
         ...blankMazatrol(),

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { safeStorage } from "./store";
+import { safeStorage, useAppStore } from "./store";
+import type { Vec3 } from "./nc";
 import {
   blankMazatrol,
   newShape,
@@ -23,7 +24,7 @@ export function validMazatrol(value: unknown): value is MazatrolProgram {
           Number.isFinite((value as Record<string, unknown>)[k])),
     );
   if (
-    p.version !== 1 ||
+    p.version !== 2 ||
     !Array.isArray(p.units) ||
     p.units.length < 3 ||
     p.units.length > 100
@@ -105,7 +106,18 @@ export function validMazatrol(value: unknown): value is MazatrolProgram {
     return true;
   });
 }
-export function restorePrograms(value: unknown): {
+/** Version 1 stored WPC relative to G54. Copy, translate once, and mark the new semantics. */
+function migrateWpc(value: unknown, g54: Vec3): unknown {
+  if (!value || typeof value !== "object") return value;
+  const p = value as { version?: number; units?: Unit[] };
+  if (p.version !== 1 || !Array.isArray(p.units)) return value;
+  // Validate the old numeric fields before arithmetic (e.g. null must not become zero).
+  if (!validMazatrol({ ...p, version: 2 })) return value;
+  return { ...p, version: 2, units: p.units.map(u => u?.kind === "WPC" ? {
+    ...u, x: u.x + g54.x, y: u.y + g54.y, z: u.z + g54.z,
+  } : u) };
+}
+export function restorePrograms(value: unknown, g54 = useAppStore.getState().workOffsets[54]): {
   documents: ProgramDocument[];
   activeId: string | null;
 } {
@@ -113,6 +125,7 @@ export function restorePrograms(value: unknown): {
   const documents: ProgramDocument[] = Array.isArray(v?.documents)
     ? v.documents
         .slice(0, 100)
+        .map(d => d?.kind === "mazatrol" ? { ...d, data: migrateWpc(d.data, g54) } : d)
         .filter(
           (d): d is ProgramDocument =>
             !!d &&
@@ -176,6 +189,9 @@ export const usePrograms = create<Library>()(
     }),
     {
       name: "nc-practice-programs-v1",
+      // Persist the migrated data immediately; later G54 edits must never translate WPC again.
+      version: 2,
+      migrate: saved => restorePrograms(saved),
       storage: createJSONStorage(() => safeStorage),
       partialize: ({ documents, activeId }) => ({ documents, activeId }),
       merge: (saved, current) => ({ ...current, ...restorePrograms(saved) }),

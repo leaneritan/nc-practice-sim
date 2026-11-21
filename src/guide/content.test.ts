@@ -6,7 +6,7 @@ import { glossary } from '../i18n/glossary';
 import { en } from '../i18n/en';
 import { ja } from '../i18n/ja';
 import { defaultOffsets, defaultTools, simulationOptions } from '../setup';
-import { runProgram } from '../nc';
+import { parseProgram, runProgram } from '../nc';
 
 const sources = { en: readFileSync(new URL('./en.md', import.meta.url), 'utf8'), ja: readFileSync(new URL('./ja.md', import.meta.url), 'utf8') };
 describe('editable bilingual guide contract', () => {
@@ -47,6 +47,19 @@ describe('editable bilingual guide contract', () => {
     expect(helpChapter('PROGRAM', true, false)).toBe('mazatrol');
     expect(helpChapter('PROGRAM', true, true)).toBe('gcode');
   });
+  it('documents independent machine-coordinate WPC and the spindle gauge line in both languages', () => {
+    expect(sources.en).toContain('spindle gauge line');
+    expect(sources.ja).toContain('主軸端（ゲージライン）');
+    expect(sources.en).not.toContain('machine reference point');
+    expect(sources.ja).not.toContain('機械の基準点');
+    for (const source of Object.values(sources)) {
+      const chapter = parseGuide(source).find(c => c.id === 'mazatrol')!.markdown;
+      expect(chapter).toContain('G10 L2 P1 X-500.0000 Y-250.0000 Z-400.0000');
+      expect(chapter).not.toMatch(/relative to G54|G54からの移動/);
+    }
+    expect(sources.en).toContain('one M code per line');
+    expect(sources.ja).toContain('1行にMコード1つ');
+  });
   it('rejects accidentally removed, repeated or reordered chapter numbers', () => {
     for (const text of [sources.en.replace('## 8.', '## 9.'), sources.en.replace('## 2.', '## 1.'), '']) expect(() => parseGuide(text)).toThrow();
   });
@@ -54,6 +67,7 @@ describe('editable bilingual guide contract', () => {
     const results = Object.values(sources).map(source => {
       const code = source.match(/```gcode\n([\s\S]*?)```/)![1]!;
       expect(code.trim().split('\n').every(line => line.includes('(') && line.endsWith(')'))).toBe(true);
+      expect(parseProgram(code).blocks.every(block => block.words.filter(word => word.letter === 'M').length <= 1)).toBe(true);
       const options = simulationOptions(defaultOffsets(), defaultTools());
       const result = runProgram(code, options);
       expect(result.alarms).toEqual([]);
