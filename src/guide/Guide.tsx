@@ -16,8 +16,8 @@ const termId = (href: string | undefined): TermId | null => {
   const id = href?.startsWith('term:') ? href.slice(5) : '';
   return Object.hasOwn(terms, id) ? id as TermId : null;
 };
-export default function Guide({ chapter, onChapter, onClose }: {
-  chapter: GuideChapter; onChapter: (chapter: GuideChapter) => void; onClose: () => void;
+export default function Guide({ chapter, onChapter, onClose, backLabel }: {
+  chapter: GuideChapter; onChapter: (chapter: GuideChapter) => void; onClose: () => void; backLabel?: string;
 }) {
   const { t, language } = useI18n();
   const title = useRef<HTMLHeadingElement>(null);
@@ -32,7 +32,7 @@ export default function Guide({ chapter, onChapter, onClose }: {
   return <section className="guide panel" aria-label={t.guide.title}>
     <div className="guide-heading"><h2>{t.guide.title}</h2>
       <HelpButton chapter="start" onOpen={choose} />
-      <button className="secondary" onClick={onClose}>{t.guide.back}</button>
+      <button className="secondary" onClick={onClose}>{backLabel ?? t.guide.back}</button>
     </div>
     <p className="hint">{t.guide.holdHint}</p>
     <div className="guide-layout">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useI18n } from "../i18n";
 import { NumberField } from "./SetupScreens";
 import { useAppStore } from "../store";
+import type { ToolData } from "../setup";
 import { toolKinds } from "../setup";
 import type {
   MazatrolProgram,
@@ -60,14 +61,17 @@ export function MazatrolEditor({
   disabled,
   onChange,
   expansion,
+  availableTools,
 }: {
   data: MazatrolProgram;
   disabled: boolean;
   onChange: (data: MazatrolProgram) => void;
   expansion: Expansion;
+  availableTools?: ToolData[];
 }) {
   const { t } = useI18n();
-  const tools = useAppStore((s) => s.tools);
+  const configuredTools = useAppStore((s) => s.tools);
+  const tools = availableTools ?? configuredTools;
   const [selected, setSelected] = useState(data.units[0]!.id);
   const [addKind, setAddKind] = useState<CuttingUnit["kind"]>("DRILLING");
   const [shapeKind, setShapeKind] = useState<Shape["kind"]>("PT");

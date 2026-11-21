@@ -1,3 +1,4 @@
+import { lessonEn } from '../lessons/messages';
 import type { AlarmCode } from '../nc';
 
 const contourProgram = `%
@@ -84,6 +85,7 @@ M30
 %`;
 
 export const en = {
+  lessons: lessonEn,
   guide: {
     title: 'How to use', help: 'Help', symbol: '?', back: 'Back to simulator', contents: 'Guide chapters',
     loading: 'Opening guide…', table: 'Reference table',
@@ -298,7 +300,7 @@ export const en = {
   }
 },
   title: 'NC Practice Simulator',
-  subtitle: 'Phase 6A · User guide',
+  subtitle: 'Phase 6B · Lessons',
   language: 'Language',
   japanese: '日本語',
   english: 'English',

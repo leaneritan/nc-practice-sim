@@ -83,17 +83,20 @@ describe('Phase 1 page', () => {
     useAppStore.setState({ program: 'G91 G0\n' + 'X1\n'.repeat(105) });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: ja.run }));
+    const run = screen.getByRole('button', { name: ja.run });
+    await user.click(run);
+    // Keep pagination lookups inside its nav, away from 100 row tooltips.
+    const pagination = within(screen.getByRole('navigation', { name: ja.results }));
     expect(screen.getAllByRole('row')).toHaveLength(101);
-    expect(screen.getByRole('button', { name: ja.previous })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: ja.next }));
+    expect(pagination.getByRole('button', { name: ja.previous })).toBeDisabled();
+    await user.click(pagination.getByRole('button', { name: ja.next }));
     expect(screen.getAllByRole('row')).toHaveLength(6);
-    expect(screen.getByRole('button', { name: ja.next })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: ja.previous }));
+    expect(pagination.getByRole('button', { name: ja.next })).toBeDisabled();
+    await user.click(pagination.getByRole('button', { name: ja.previous }));
     expect(screen.getAllByRole('row')).toHaveLength(101);
-    await user.click(screen.getByRole('button', { name: ja.next }));
-    await user.click(screen.getByRole('button', { name: ja.run }));
-    expect(screen.getByRole('button', { name: ja.previous })).toBeDisabled();
+    await user.click(pagination.getByRole('button', { name: ja.next }));
+    await user.click(run);
+    expect(pagination.getByRole('button', { name: ja.previous })).toBeDisabled();
   });
 });
 

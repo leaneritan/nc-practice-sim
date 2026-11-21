@@ -7,10 +7,12 @@ import { physicalTip, removedVolume, viseBoxes } from '../nc/stock';
 import type { Vec3 } from '../nc';
 import { stockVertices } from '../view/stockMesh';
 
-export function StockView({ stock, position, origin, rotation = 0, tool }: { stock: Heightmap; position: Vec3; origin: Vec3; rotation?: number; tool?: CuttingTool }) {
+export interface StockMarker extends Vec3 { kind: 'undercut' | 'overcut' | 'selected' }
+const noMarkers: StockMarker[] = [];
+export function StockView({ stock, position, origin, rotation = 0, tool, markers = noMarkers }: { stock: Heightmap; position: Vec3; origin: Vec3; rotation?: number; tool?: CuttingTool; markers?: StockMarker[] }) {
   const { t } = useI18n();
   const host = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<{ stock: THREE.Mesh; tool: THREE.Mesh; renderer: THREE.WebGLRenderer; reset: () => void } | null>(null);
+  const sceneRef = useRef<{ stock: THREE.Mesh; tool: THREE.Mesh; marks: THREE.Points; selected: THREE.Points; renderer: THREE.WebGLRenderer; reset: () => void } | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   useEffect(() => {
     if (!host.current) return;
@@ -40,14 +42,17 @@ export function StockView({ stock, position, origin, rotation = 0, tool }: { sto
     const toolMesh = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 24), new THREE.MeshStandardMaterial({ color: '#dca34a', metalness: .65, roughness: .3, transparent: true, opacity: .8 }));
     toolMesh.rotation.x = Math.PI / 2; scene.add(toolMesh);
     scene.add(new THREE.AxesHelper(35));
-    sceneRef.current = { stock: stockMesh, tool: toolMesh, renderer, reset };
+    const marks = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: 4, vertexColors: true, depthTest: false }));
+    const selected = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: 15, color: '#005dff', depthTest: false }));
+    marks.renderOrder = 2; selected.renderOrder = 3; scene.add(marks, selected);
+    sceneRef.current = { stock: stockMesh, tool: toolMesh, marks, selected, renderer, reset };
     const resize = () => { const width = Math.max(240, element.clientWidth); renderer.setSize(width, 380); camera.aspect = width / 380; camera.updateProjectionMatrix(); };
     resize(); const observer = new ResizeObserver(resize); observer.observe(element);
     let frame = 0;
     const draw = () => { controls.update(); renderer.render(scene, camera); frame = requestAnimationFrame(draw); }; draw();
     return () => {
       cancelAnimationFrame(frame); observer.disconnect(); controls.dispose();
-      scene.traverse(object => { if (object instanceof THREE.Mesh || object instanceof THREE.Line) { object.geometry.dispose(); const materials = Array.isArray(object.material) ? object.material : [object.material]; materials.forEach(material => material.dispose()); } });
+      scene.traverse(object => { if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points) { object.geometry.dispose(); const materials = Array.isArray(object.material) ? object.material : [object.material]; materials.forEach(material => material.dispose()); } });
       renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); sceneRef.current = null;
     };
   }, []);
@@ -64,6 +69,15 @@ export function StockView({ stock, position, origin, rotation = 0, tool }: { sto
     meshes.tool.visible = !!tool;
     if (tool) { meshes.tool.scale.set(tool.actual / 2, tool.length, tool.actual / 2); meshes.tool.position.set(tip.x, tip.y, tip.z + tool.length / 2); }
   }, [position, origin, rotation, tool, t.sim.canvas]);
+  useEffect(() => {
+    const meshes = sceneRef.current; if (!meshes) return;
+    for (const [mesh, points] of [[meshes.marks, markers.filter(m => m.kind !== 'selected')], [meshes.selected, markers.filter(m => m.kind === 'selected')]] as const) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(points.flatMap(p => [p.x, p.y, p.z]), 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(points.flatMap(p => new THREE.Color(p.kind === 'overcut' ? '#c52f38' : '#cf900a').toArray()), 3));
+      mesh.geometry.dispose(); mesh.geometry = geometry;
+    }
+  }, [markers]);
   return <section className="stock-view" aria-label={t.sim.title}>
     <div className="result-heading"><h3>{t.sim.title}</h3><button onClick={() => sceneRef.current?.reset()}>{t.sim.resetCamera}</button></div>
     <div ref={host} className="stock-canvas" />

@@ -7,6 +7,18 @@ const flat = { pocket: 1, kind: 'endMill' as const, actual: 6, length: 120 };
 const v = (x = 0, y = 0, z = 0) => ({ x, y, z });
 
 describe('heightmap cutter geometry', () => {
+  it.each(['G2', 'G3'])('cuts the exact circular wall, including tangent grid nodes, for %s', code => {
+    const s = runProgram(`M3 S1000 ${code} X23. Y20. I-3. J0. F100`, { initialPosition: v(23,20,-3) }).segments[0]!;
+    const tool = { ...flat, length: 0 }, before = createStock();
+    const map = removeMaterial(before, s, tool, v());
+    for (const [x,y] of [[20,14],[20,26],[14,20],[26,20]]) expect(map.heights[y! * 101 + x!]).toBe(-3);
+    expect(map.heights[20 * 101 + 27]).toBe(0);
+    const partial = removeMaterial(before, s, tool, v(), 0, .25);
+    expect(partial.heights[20 * 101 + 14]).toBe(0);
+    expect(removedVolume(before)).toBe(0);
+    const completed = removeMaterial(partial, s, tool, v(), .25, 1);
+    expect(completed.heights).toEqual(map.heights);
+  });
   it('starts as a 100 × 60 × 20 block with zero removed volume', () => {
     const map = createStock(); expect(map.heights).toHaveLength(6161); expect(removedVolume(map)).toBe(0);
     const vertices = stockVertices(map); expect(vertices.length % 9).toBe(0);

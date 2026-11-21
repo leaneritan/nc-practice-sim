@@ -2,9 +2,9 @@
 
 ## English
 
-A browser-based CNC practice app inspired by Mazak/Mazatrol, built with Vite, React, strict TypeScript, Zustand and Vitest. **Phase 6A** adds a bilingual, eight-chapter **How to use** guide with contextual **?** buttons, diagrams and a complete alarm reference. The simulator includes a program library and Mazatrol-style unit forms, automatic editable tool sequences, unit shape previews, and equivalent G-code. Both formats share the control panel, 3D stock removal, magazine and safety checks. XY/XZ paths and stock/vise outlines use **WORK coordinates**; POSITION shows machine coordinates separately. Japanese (default) / English, glossary tooltips and three sample G-code programs are included. EIA/ISO and Mazatrol programs, language, input settings, G54–G59, tool records and the optional pocket-width limit persist in this browser; no backend. Stock removal and machine position are session-only.
+A browser-based CNC practice app inspired by Mazak/Mazatrol, built with Vite, React, strict TypeScript, Zustand and Vitest. **Phase 6B** adds seven bilingual lessons, Mazatrol and G-code tracks, dimensioned goals, automatic stock/feature checks, error highlights and saved progress. The eight-chapter **How to use** guide remains available from contextual **?** buttons. The simulator includes a program library and Mazatrol-style unit forms, automatic editable tool sequences, unit shape previews, and equivalent G-code. Both formats share the control panel, 3D stock removal, magazine and safety checks. XY/XZ paths and stock/vise outlines use **WORK coordinates**; POSITION shows machine coordinates separately. Japanese (default) / English, glossary tooltips and three sample G-code programs are included. EIA/ISO and Mazatrol programs, language, input settings, G54–G59, tool records and the optional pocket-width limit persist in this browser; no backend. Stock removal and machine position are session-only.
 
-**Screenshot:** _Placeholder — add the guide, unit editor and SHAPE CHECK here._
+**Screenshot:** _Placeholder — add Lessons, progress and highlighted stock here._
 
 Requires **Node.js 22.12+** (24 LTS recommended) and npm:
 
@@ -17,6 +17,9 @@ npm run build           # Strict type check + production build
 npm run preview         # Serve the production build
 ```
 
+- Open **Lessons** in the header. Choose a part and track, read the dimension table and hint, then edit the deliberately unfinished starter. **Run and check** starts with fresh default stock/tools without changing free practice. Try lesson 1: select **3 · FACE MILL**, change depth from 0.5 to **1**, regenerate tools, and check for **Pass**. Repeat on the EIA track with facing passes at Z−1.
+- Checks compare an independent target heightmap at **±0.1 mm Z**, hole positions/diameters/depths, completed pilot depth before tapping, tap pitch and alarms. Select a reported issue to highlight it on the goal drawing and 3D stock. The XY grid is **1 mm**; threads are validated from motion, not thread geometry. The contour goal is a 6 mm wide outside groove, not removal of all surrounding stock. Lesson 7 combines all earlier operations.
+- **Progress** keeps attempts, best and last results separately for all 14 lesson/track combinations. Drafts and progress persist in localStorage. **Export/Import progress JSON** backs up results only; importing merges best/latest results and takes the larger attempt count, so repeated imports are idempotent. Storage-blocked browsers retain only session data. Lesson checks run instantly; single-block practice remains in the simulator.
 - Open **How to use** in the header, or **?** on a screen to open its matching chapter. The guide follows the language switch. Opening it holds a running cycle and stops jog input; returning requires CYCLE START to resume.
 - In **EDIT → PROGRAM**, open **Program list / Create program**. Enter a name and choose **Mazatrol** or **EIA/ISO (G-code)**, then Create program. The original EIA program remains available in the list.
 - For the conversational example, first use **Reset to default setup**, then **Load Mazatrol sample**. It faces 1 mm, drills/taps four M8 holes, and mills a 40×20 pocket to stock Z−5. Click a unit to edit its forms, shape rows or tool sequence. **Generate tool sequence** replaces that unit's rows with practice starting values; subsequent edits are retained. TOOL DATA must match the selected tools.
@@ -43,15 +46,15 @@ With H1 = 120 mm, POSITION shows work `(10, 15, 5)` and machine `(−490, −235
 
 **Safety checks:** spindle stopped while cutting, missing feed, rapid into remaining material, vise collision, below-stock cutting, missing length compensation, travel limits, missing tool, and tool diameter exceeding an explicitly configured pocket width. Set that width in TOOL DATA (0 = unset); G-code does not identify pocket boundaries. Unsafe source blocks are rejected before motion/removal. Checks also apply to manual movement; M06 has a home/spindle interlock.
 
-**Not yet implemented:** lessons, JSON import/export, G41/G42, wear/life consumption, alternate machines or exact Matrix/Smooth compatibility. LINE OUT currently accepts closed convex contours with tangent arc joins. Pockets are rectangular with tool-radius internal corners; automatic cutting data are editable practice suggestions, not machining recommendations. The 1 mm heightmap cannot represent undercuts or threads; collisions use sampled cutter envelopes, not holders, real servo physics, or certified machine geometry. WebGL is required for 3D; the core simulation and 2D views still work without it.
+**Not yet implemented:** program/setup JSON import/export, G41/G42, wear/life consumption, alternate machines or exact Matrix/Smooth compatibility. LINE OUT currently accepts closed convex contours with tangent arc joins. Pockets are rectangular with tool-radius internal corners; automatic cutting data are editable practice suggestions, not machining recommendations. The 1 mm heightmap cannot represent undercuts or threads; collisions use sampled cutter envelopes, not holders, real servo physics, or certified machine geometry. WebGL is required for 3D; the core simulation and 2D views still work without it.
 
 **Practice only:** Practice simulator — always follow company training on real machines. This simplified learning app is not an official Mazak/Mazatrol product or a real CAM/CNC tool. Do not use its programs or results to operate real equipment. No machine connection or export is intended.
 
 ## 日本語
 
-Mazak／Mazatrolを参考にしたブラウザー練習用CNCシミュレーターです。Vite・React・厳格なTypeScript・Zustand・Vitestを使用しています。**フェーズ6A**では、8章の日本語／英語「使い方ガイド」、画面別の「?」、図解、全アラーム一覧を追加しました。プログラム一覧、Mazatrol風ユニット入力、自動工具展開、形状プレビュー、比較用Gコード表示も利用できます。両形式は操作盤・3D材料除去・マガジン・安全アラームを共用します。XY/XZ経路と素材・バイスは**ワーク座標**で表示し、POSITIONには機械座標も別に表示します。日本語（初期設定）／英語、用語解説、3つのGコード例を利用できます。プログラム・言語・入力設定・G54〜G59・工具データ・ポケット幅はブラウザー内に保存され、バックエンドは不要です。除去形状・機械位置は再読込み時に初期化します。
+Mazak／Mazatrolを参考にしたブラウザー練習用CNCシミュレーターです。Vite・React・厳格なTypeScript・Zustand・Vitestを使用しています。**フェーズ6B**では7つの日本語／英語レッスン、Mazatrol・Gコードの両形式、寸法付き目標図、素材・加工条件の自動採点、指摘箇所表示、進捗保存を追加しました。8章の「使い方ガイド」も画面別の「?」から利用できます。プログラム一覧、Mazatrol風ユニット入力、自動工具展開、形状プレビュー、比較用Gコード表示も利用できます。両形式は操作盤・3D材料除去・マガジン・安全アラームを共用します。XY/XZ経路と素材・バイスは**ワーク座標**で表示し、POSITIONには機械座標も別に表示します。日本語（初期設定）／英語、用語解説、3つのGコード例を利用できます。プログラム・言語・入力設定・G54〜G59・工具データ・ポケット幅はブラウザー内に保存され、バックエンドは不要です。除去形状・機械位置は再読込み時に初期化します。
 
-**スクリーンショット：** _準備中 — ガイド・ユニット編集・SHAPE CHECKをここへ追加します。_
+**スクリーンショット：** _準備中 — レッスン・進捗・指摘箇所付き素材をここへ追加します。_
 
 **Node.js 22.12以降**（24 LTS推奨）とnpmが必要です。
 
@@ -64,6 +67,9 @@ npm run build           # 型チェック・本番用ビルド
 npm run preview         # 本番用ビルドの確認
 ```
 
+- ヘッダーの**レッスン**で課題と形式を選び、寸法表・ヒントを読んで未完成の開始プログラムを編集します。**実行・採点**は毎回標準工具・新品素材から開始し、自由練習の内容を保持します。課題1では**3 · FACE MILL**の深さ0.5を**1**に変更し、工具を再展開して**合格**を確認。EIAでも面削りのパスをZ−1にして挑戦します。
+- 独立した目標高さマップと**Z±0.1 mm**で比較し、穴位置・径・深さ、タップ前の下穴深さ、ねじピッチ、アラームも確認します。指摘を選ぶと目標図・3D素材に位置を表示します。XY格子は**1 mm**で、ねじ山形状ではなく指令動作を検証します。外周の目標は幅6 mmの周囲溝で、外側全面の除去ではありません。課題7はそれまでの加工を組み合わせます。
+- **学習進捗**は全14組の課題・形式ごとに挑戦回数・最高成績・前回結果を保持します。編集中プログラムと進捗はlocalStorageに保存。**進捗JSON入出力**は成績のみをバックアップし、最高成績・最新結果と大きい方の回数を統合します。再読込でも重複加算しません。保存不可のブラウザーはセッション中のみ保持。レッスン採点は即時計算で、SINGLE BLOCKの練習はシミュレーターで行います。
 - ヘッダーの**使い方ガイド**、または各画面の**?**から対応章を開きます。言語切替に追従し、開くと運転は一時停止・ジョグ入力は停止します。戻った後の再開はCYCLE STARTで行います。
 - **EDIT → PROGRAM**で**プログラム一覧・新規作成**を開き、名前と**Mazatrol／EIA/ISO (G-code)**を選んで作成します。元のEIAプログラムも一覧に残ります。
 - 対話式の例は**段取りを初期値に戻す**→**Mazatrolサンプルを読み込む**で開始します。上面を1 mm削り、M8タップ4穴、40×20のポケットを素材Z−5まで加工します。ユニットを選ぶと項目・形状行・工具行を編集できます。**工具を自動展開**は選択ユニットの行を練習用初期値で置換し、その後は手動編集できます。TOOL DATAと工具を一致させてください。
@@ -88,8 +94,10 @@ H1 = 120 mmなので、ワーク座標は`(10, 15, 5)`、機械座標は`(−490
 
 **安全アラーム：** 切削中の主軸停止、送り未指定、未除去素材への早送り、バイス干渉、素材底面より下への切削、工具長補正なし、ストロークリミット、工具未登録、指定ポケット幅より大きい工具径を検査します。ポケット幅はTOOL DATAで指定します（0＝未設定）。Gコード経路だけでは形状境界は分かりません。危険な入力ブロックは移動・除去前に停止します。手動移動にも適用し、M06には原点・主軸のインターロックがあります。
 
-**未実装：** レッスン、JSON入出力、G41/G42、摩耗・寿命消費、別機種、Matrix/Smoothとの完全互換。LINE OUTは閉じた凸輪郭・接線の円弧接続に限定し、ポケットは工具半径の隅Rを持つ長方形です。自動切削条件は編集可能な練習用初期値で、実加工の推奨値ではありません。1 mmの高さマップではアンダーカット・ねじ形状は表現できません。干渉は工具包絡形状の標本検査で、ホルダー・サーボの物理計算・実機の正確な形状は未再現です。3DにはWebGLが必要ですが、利用できない場合も計算・2D表示は動作します。
+**未実装：** プログラム・段取りのJSON入出力、G41/G42、摩耗・寿命消費、別機種、Matrix/Smoothとの完全互換。LINE OUTは閉じた凸輪郭・接線の円弧接続に限定し、ポケットは工具半径の隅Rを持つ長方形です。自動切削条件は編集可能な練習用初期値で、実加工の推奨値ではありません。1 mmの高さマップではアンダーカット・ねじ形状は表現できません。干渉は工具包絡形状の標本検査で、ホルダー・サーボの物理計算・実機の正確な形状は未再現です。3DにはWebGLが必要ですが、利用できない場合も計算・2D表示は動作します。
 
 **練習専用：** 練習用シミュレーター — 実機の操作は必ず会社の指導に従うこと。Mazak／Mazatrolの公式製品でも実加工用のCAM・CNCツールでもありません。本アプリのプログラムや結果を実機の運転に使用しないでください。実機への接続・出力は対象外です。
 
 **ガイドの編集：** `src/guide/ja.md`と`src/guide/en.md`を編集します。番号付きH2見出し`## 1.`〜`## 8.`の順番を維持してください。標準Markdownに加え、用語は`[表示名](term:workOffset)`、章リンクは`[表示名](#basics)`です。用語リンクはアプリ内で解説になり、リポジトリではリンク文字として読めます。`npm run guide:export`で`docs/guide-ja.md`／`docs/guide-en.md`に同じ内容をコピーします。テストで章・用語・全アラーム・遷移・コピー一致を検証します。
+
+**Editing lessons / レッスンの追加:** `src/lessons/types.ts` defines IDs and target geometry; `catalog.ts` defines dimensions; `messages.ts` holds both languages (exposed via i18n); `programs.ts` builds starters/reference solutions. The independent checker and analytic target live in `src/nc/lessons/`. Add a definition and bilingual content, extend starters as needed, then test correct Mazatrol/EIA solutions and common failures. / ID・目標寸法・両言語の本文を追加し、必要に応じて開始プログラムを拡張して、両形式の正解と典型的な誤りをテストします。
