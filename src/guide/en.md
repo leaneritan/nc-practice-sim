@@ -18,6 +18,12 @@
 
 **Three different resets:** RESET clears a run/alarm without moving axes or replacing removed material. Replace stock gives a fresh block and clears pilot-hole history, retaining setup/position. Reset to default setup also restores setup and machine home. These simulator actions are not instructions for resetting a real machine.
 
+### Lessons and progress
+
+Open **Lessons** in the header for seven parts, each with Mazatrol and G-code tracks. Read the dimensioned goal and hint, edit the unfinished starter and press **Run and check**. Every attempt starts at home with fresh default stock/tools and preserves free practice. Lesson 1: select FACE MILL, change depth0.5 to1, regenerate tools and check. Complete the EIA track with facing passes at Z−1 too.
+
+The check compares target heights within ±0.1 mm on a 1 mm XY grid, hole positions/depths, pilot drilling before tapping, pitch, completion and alarms. Select an issue to see its location on the goal drawing and 3D stock. The result becomes stale after editing. **Progress** records best/last results and attempts for each track in this browser. Export/import JSON backs up results only; import merges best/latest results and takes the larger attempt count. It does not double-count a repeated backup. Threads and real-machine safety are not certified by a pass.
+
 ## 2. Machine basics
 
 1. Select an EIA program and open POSITION after resetting the default setup. [Machine coordinates](term:machineCoordinate) reference the fixed machine home; [work coordinates](term:workCoordinate) reference the part origin. At home with H off, machine XYZ is `(0, 0, 0)` but work XYZ is `(500, 250, 400)`.
@@ -257,4 +263,4 @@ Supervised first run: single block + appropriate overrides
 Observe → hold / trained emergency action if needed → ask
 ```
 
-The simulator's ZERO RETURN, RESET and setup-reset shortcuts do not teach a real machine's homing/recovery procedure. Lessons with automatic grading, company-specific training and exact Matrix/Smooth compatibility are not part of this guide.
+The simulator's ZERO RETURN, RESET and setup-reset shortcuts do not teach a real machine's homing/recovery procedure. Company-specific training and exact Matrix/Smooth compatibility are not part of this guide.

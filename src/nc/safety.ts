@@ -1,5 +1,5 @@
 import type { Alarm, MotionSegment, Vec3 } from './types';
-import { createStock, cutAt, pathLength, physicalTip, pointAt, recordDrilling, stockBox, visitFootprint, viseBoxes } from './stock';
+import { createStock, cutAt, cutLevelArc, pathLength, physicalTip, pointAt, recordDrilling, stockBox, visitFootprint, viseBoxes } from './stock';
 import type { Box, CuttingTool, Heightmap } from './stock';
 
 export interface SafetySetup {
@@ -86,6 +86,8 @@ export function inspectMotions(segments: MotionSegment[], setup: SafetySetup, st
       if (setup.pocketWidth > 0 && tool.actual > setup.pocketWidth) return alarm('pocketDiameter', `${tool.actual} > ${setup.pocketWidth}`);
       changed = cutAt(next, tool, tip) || changed;
     }
+    if (tool && segment.kind !== 'rapid' && segment.spindle !== 'off' && segment.speed > 0)
+      changed = cutLevelArc(next, segment, tool, setup.stockOrigin, 0, 1, setup.stockRotation) || changed;
     next = recordDrilling(next, segment, tool, setup.stockOrigin, 1, setup.stockRotation);
   }
   return { stock: changed ? { ...next, revision: stock.revision + 1 } : next.drilledHoles !== stock.drilledHoles ? { ...stock, drilledHoles: next.drilledHoles } : stock, alarms: [] };

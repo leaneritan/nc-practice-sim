@@ -27,6 +27,7 @@ import { activeWorkShift, machineToWork } from './nc/coordinates';
 import { createMachine, cycleStart, distanceRemaining, feedHold, locked, manualMove, motionRate, currentSegment,
   resetMachine, setControls, setCoolant, setMode, tickMachine, visibleSegments } from './nc/machine';
 
+const LessonsScreen = lazy(() => import('./lessons/LessonsScreen'));
 const Guide = lazy(() => import('./guide/Guide'));
 type Screen = MachineScreen;
 const axes = ['x', 'y', 'z'] as const;
@@ -46,6 +47,8 @@ export default function App() {
   const [machine, setMachine] = useState(() => setControls(createMachine(machineHome), { optionalStop: store.optionalStop }));
   const [screen, setScreen] = useState<Screen>('PROGRAM');
   const [guideChapter, setGuideChapter] = useState<GuideChapter | null>(null);
+  const [lessonView, setLessonView] = useState<'lessons' | 'progress' | null>(null);
+  const lessonReturnFocus = useRef<HTMLElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [mdi, setMdi] = useState('');
   const [handle, setHandle] = useState<1 | 10 | 100>(1);
@@ -71,13 +74,17 @@ export default function App() {
   const actualSpeed = machine.state.spindle === 'off' ? 0 : machine.state.speed * machine.controls.spindle / 100;
   const editable = !busy && machine.status !== 'alarm' && (machine.mode === 'EDIT' || machine.mode === 'MDI');
   function invalidate() { setMachine(current => resetMachine(current)); }
+  function openLessons(view: 'lessons' | 'progress') {
+    if (!lessonView && document.activeElement instanceof HTMLElement) lessonReturnFocus.current = document.activeElement;
+    setGuideChapter(null); setJogInput(null); setMachine(feedHold); setLessonView(view);
+  }
   function openGuide(chapter: GuideChapter) {
     if (!guideChapter && document.activeElement instanceof HTMLElement) returnFocus.current = document.activeElement;
     setJogInput(null);
     setMachine(feedHold);
     setGuideChapter(chapter);
   }
-  useEffect(() => { if (!guideChapter) returnFocus.current?.focus(); }, [guideChapter]);
+  useEffect(() => { if (!guideChapter) returnFocus.current?.focus(); }, [guideChapter, lessonView]);
   useEffect(() => { document.documentElement.lang = language; document.title = t.title; }, [language, t.title]);
   useEffect(() => {
     if (machine.status !== 'running') return;
@@ -97,7 +104,7 @@ export default function App() {
     };
     const stop = () => setJogInput(null);
     const down = (event: KeyboardEvent) => {
-      if (guideChapter) return;
+      if (guideChapter || lessonView) return;
       if (event.target instanceof HTMLElement && (event.target.matches('input, textarea, select, button') || event.target.isContentEditable)) return;
       if (!['JOG', 'RAPID', 'HANDLE'].includes(machine.mode) || busy || !map[event.key]) return;
       event.preventDefault(); if (event.repeat) return;
@@ -108,7 +115,7 @@ export default function App() {
     window.addEventListener('keydown', down); window.addEventListener('keyup', stop); window.addEventListener('blur', stop);
     document.addEventListener('visibilitychange', stop);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', stop); window.removeEventListener('blur', stop); document.removeEventListener('visibilitychange', stop); };
-  }, [machine.mode, busy, handle, options, guideChapter]);
+  }, [machine.mode, busy, handle, options, guideChapter, lessonView]);
 
   const activeTools = activeOptions.safety?.tools ?? store.tools;
   const stockOrigin = activeOptions.safety?.stockOrigin ?? store.workOffsets[54];
@@ -126,7 +133,7 @@ export default function App() {
   }
   return <main className="machine-app">
     <header className="app-header"><div><p className="eyebrow">{t.subtitle}</p><h1>{t.title}</h1></div>
-      <div className="header-actions"><button className="secondary" onClick={() => openGuide('start')}>{t.guide.title}</button>
+      <div className="header-actions"><button onClick={() => openLessons('lessons')}>{t.lessons.title}</button><button onClick={() => openLessons('progress')}>{t.lessons.progress}</button><button className="secondary" onClick={() => openGuide('start')}>{t.guide.title}</button>
       <div role="group" aria-label={t.language} className="language-switch">
         <button lang="ja" aria-pressed={language === 'ja'} onClick={() => store.setLanguage('ja')}>{t.japanese}</button>
         <button lang="en" aria-pressed={language === 'en'} onClick={() => store.setLanguage('en')}>{t.english}</button>
@@ -134,8 +141,9 @@ export default function App() {
       </div>
     </header>
     <p className="disclaimer">{t.disclaimer}</p><p className="hint">{t.sim.defaults}</p>
-    {guideChapter && <Suspense fallback={<p role="status">{t.guide.loading}</p>}><Guide chapter={guideChapter} onChapter={setGuideChapter} onClose={() => setGuideChapter(null)} /></Suspense>}
-    <div hidden={guideChapter !== null}>
+    {guideChapter && <Suspense fallback={<p role="status">{t.guide.loading}</p>}><Guide chapter={guideChapter} onChapter={setGuideChapter} onClose={() => setGuideChapter(null)} backLabel={lessonView ? t.lessons.backToLessons : undefined} /></Suspense>}
+    {lessonView && <div hidden={guideChapter !== null}><Suspense fallback={<p role="status">{t.lessons.title}…</p>}><LessonsScreen view={lessonView} onView={setLessonView} onGuide={openGuide} onClose={() => { setLessonView(null); requestAnimationFrame(() => lessonReturnFocus.current?.focus()); }} /></Suspense></div>}
+    <div hidden={guideChapter !== null || lessonView !== null}>
     <div className="machine-console">
       <div className="display-unit">
         <div className="machine-status" role="status" aria-label={t.panel.statusLabel}>

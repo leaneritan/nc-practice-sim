@@ -1,7 +1,9 @@
+import { lessonJa } from '../lessons/messages';
 import { en } from './en';
 import type { Messages } from './en';
 
 export const ja: Messages = {
+  lessons: lessonJa,
   guide: {
     title: '使い方ガイド', help: 'ヘルプ', symbol: '?', back: 'シミュレーターに戻る', contents: 'ガイドの目次',
     loading: 'ガイドを開いています…', table: '参照表',
@@ -216,7 +218,7 @@ export const ja: Messages = {
   }
 },
   title: 'NC練習シミュレーター',
-  subtitle: 'フェーズ6A · 使い方ガイド',
+  subtitle: 'フェーズ6B · レッスン',
   language: '表示言語',
   japanese: '日本語',
   english: 'English',

@@ -77,6 +77,31 @@ export function recordDrilling(map: Heightmap, segment: MotionSegment, tool: Cut
   if (index < 0) next.push(hole); else next[index] = hole;
   return { ...map, drilledHoles: next };
 }
+/** Exact closest-point envelope supplements sampling for level circular cuts. Mutates only map. */
+export function cutLevelArc(map: Heightmap, segment: MotionSegment, tool: CuttingTool, origin: Vec3, from = 0, to = 1, rotation = 0): boolean {
+  let changed = false;
+  // A sampled circle can miss a grid node tangent to the cutter by an arbitrarily
+  // small distance. For level arcs, include the exact closest point on the swept
+  // circle, including partial live motions. This preserves the actual bore wall.
+  if ('center' in segment && Math.abs(segment.to.z - segment.from.z) < 1e-8) {
+    const center = physicalTip(segment.center, origin, tool, rotation);
+    const start = physicalTip(pointAt(segment, from), origin, tool, rotation);
+    const startAngle = Math.atan2(start.y - center.y, start.x - center.x);
+    const direction = segment.kind === 'arcCW' ? -1 : 1;
+    const sweep = segment.sweep * (to - from), reach = segment.radius + tool.actual / 2;
+    for (let y = Math.max(0, Math.ceil((center.y - reach) / map.cell)); y <= Math.min(map.height - 1, Math.floor((center.y + reach) / map.cell)); y++) {
+      for (let x = Math.max(0, Math.ceil((center.x - reach) / map.cell)); x <= Math.min(map.width - 1, Math.floor((center.x + reach) / map.cell)); x++) {
+        const dx = x * map.cell - center.x, dy = y * map.cell - center.y;
+        const angle = ((Math.atan2(dy, dx) - startAngle) * direction % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        if (angle > sweep + 1e-8) continue;
+        const surface = Math.max(stockBox.min.z, start.z + toolSurface(tool, Math.abs(Math.hypot(dx, dy) - segment.radius)));
+        const index = y * map.width + x;
+        if (surface < map.heights[index]! - 1e-6) { map.heights[index] = surface; changed = true; }
+      }
+    }
+  }
+  return changed;
+}
 /** Incremental immutable stock update, used for the partially traversed live motion. */
 export function removeMaterial(map: Heightmap, segment: MotionSegment, tool: CuttingTool | undefined, origin: Vec3, from = 0, to = 1, rotation = 0): Heightmap {
   if (!tool || segment.kind === 'rapid' || segment.spindle === 'off' || segment.speed <= 0 || to <= from) return map;
@@ -88,6 +113,7 @@ export function removeMaterial(map: Heightmap, segment: MotionSegment, tool: Cut
     changed = cutAt(next, tool, physicalTip(pointAt(segment, i / steps), origin, tool, rotation)) || changed;
   }
   changed = cutAt(next, tool, physicalTip(pointAt(segment, to), origin, tool, rotation)) || changed;
+  changed = cutLevelArc(next, segment, tool, origin, from, to, rotation) || changed;
   return recordDrilling(changed ? { ...next, revision: map.revision + 1 } : map, segment, tool, origin, to, rotation);
 }
 export function removedVolume(map: Heightmap): number {
